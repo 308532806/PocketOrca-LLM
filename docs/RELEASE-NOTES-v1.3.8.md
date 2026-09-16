@@ -25,3 +25,15 @@
 - 下载 `PocketOrca-LLM-v1.3.8-vc72-release.apk`（约 45 MB，md5 `d2d8f96a`）
 - 系统要求：Android 10 及以上，arm64
 - 与 v1.3.5 同证书签名，可直接覆盖安装
+
+## 从源码构建（附加说明）
+
+- NPU/GPU 推理运行时 `ocl-libs.tar`（约 210 MB，md5 `aaba86b0`）在本页附件；Gitee 单文件限 100 MB 故分 3 卷：
+
+```bash
+cat ocl-libs.tar.part.00 ocl-libs.tar.part.01 ocl-libs.tar.part.02 > ocl-libs.tar
+md5sum ocl-libs.tar   # 应为 aaba86b0e99fe3f92b4383b3ba8f2377
+tar xf ocl-libs.tar
+```
+
+- GitHub 附件为单文件 `ocl-libs.tar`，直接下载即可。

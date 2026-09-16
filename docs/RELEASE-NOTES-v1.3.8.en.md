@@ -25,3 +25,15 @@
 - Download `PocketOrca-LLM-v1.3.8-vc72-release.apk` (~45 MB, md5 `d2d8f96a`)
 - Requires Android 10+, arm64
 - Same signing certificate as v1.3.5 — install directly over the old version
+
+## Building from source (notes)
+
+- The NPU/GPU inference runtime `ocl-libs.tar` (~210 MB, md5 `aaba86b0`) is attached to this release; on Gitee it is split into 3 parts (100 MB per-file limit):
+
+```bash
+cat ocl-libs.tar.part.00 ocl-libs.tar.part.01 ocl-libs.tar.part.02 > ocl-libs.tar
+md5sum ocl-libs.tar   # expect aaba86b0e99fe3f92b4383b3ba8f2377
+tar xf ocl-libs.tar
+```
+
+- On GitHub the attachment is a single `ocl-libs.tar`.
