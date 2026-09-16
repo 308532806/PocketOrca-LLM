@@ -8,7 +8,7 @@ Hexagon NPU · Adreno GPU · CPU — three engines · OpenAI-compatible endpoint
 
 Free forever · No ads · No in-app purchases
 
-[Download latest](../../releases/latest) · [User Guide](docs/USER-GUIDE.md) · [Release notes](docs/RELEASE-NOTES-v1.3.5.en.md) · [Report an issue](../../issues)
+[Download latest](../../releases/latest) · [User Guide](docs/USER-GUIDE.md) · [Release notes](docs/RELEASE-NOTES-v1.3.8.en.md) · [Report an issue](../../issues)
 
 [中文](README.zh-CN.md)
 
@@ -56,7 +56,7 @@ Prebuilt Hexagon skels (`prebuilt/htp-libs-16k`) and the vendor closure (`prebui
 ## Performance
 
 - **Recommended**: Snapdragon 8 Gen 2 or newer, 12 GB+ RAM
-- **NPU engine**: Snapdragon 8 Elite and later (HTP v75+). Use Q4_0 GGUF files for NPU — see the NPU table below
+- **NPU engine**: Snapdragon 8 Elite and later (HTP v75+). Use Q4_0 / IQ4_NL GGUF files for NPU — see the NPU table below
 - **Measured speeds** (Galaxy S25, OneUI 8.0): ~30 t/s for 1B Q4_0; a steady 10 t/s for Qwen2.5-7B-Q4_0 (NPU)
 - **Context**: ≤32K recommended on 12 GB devices
 - MediaTek and other ARMv8 devices: the CPU engine is worth a try
@@ -77,7 +77,7 @@ Qualcomm / MediaTek / other ARMv8+ chips are all worth a try. Older chips (A53/A
 | Snapdragon 8 Elite | 830 | ✅ Main test device |
 | Snapdragon 8 Gen 5 | 830 | ⚠️ Untested |
 | Snapdragon 8 Gen 3 | 750 | ✅ Verified |
-| Snapdragon 8 Gen 2 | 740 | ⚠️ Adreno 740 driver bug — garbled output on Q4_K quants |
+| Snapdragon 8 Gen 2 | 740 | ✅ Q4_K garbled output fixed (via the llama.cpp upgrade); still slower than CPU, which remains recommended |
 
 MediaTek (Mali) GPUs are not supported for the GPU engine — use CPU.
 
@@ -85,13 +85,13 @@ MediaTek (Mali) GPUs are not supported for the GPU engine — use CPU.
 
 | SoC | HTP arch | Status |
 |---|---|---|
-| Snapdragon 8 Elite (SM8750) | v75 | ✅ Verified (~23 t/s at 1B; ~10 t/s at 7B; Qwen3 excluded) |
+| Snapdragon 8 Elite (SM8750) | v75 | ✅ Verified (~23 t/s at 1B; ~10 t/s at 7B Q4_0; Qwen3-8B Q4_0/IQ4_NL verified working) |
 | Snapdragon 8 Elite Gen 5 (SM8850) | v79 | ⚠️ Untested |
 | Snapdragon 8 Gen 5 | Newer Hexagon | ⚠️ Untested |
 | Snapdragon 7+ Gen 3 (SM7675) | v73 | ⚠️ Awaiting a test device |
-| Snapdragon 8 Gen 2 | v73 | ⚠️ Incomplete upstream support — small models (≤4B) work, 7B waits on upstream |
+| Snapdragon 8 Gen 2 | v73 | ⚠️ Incomplete upstream support — small models (≤4B) work |
 
-> Upstream llama.cpp support for Hexagon is still early days: the NPU path has native kernels only for plain 4-bit formats like Q4_0, while popular formats like Q4_K_M fall back to CPU. Only Q4_0 (INT4) has been tested so far — largest verified model: Qwen2.5-7B-Q4_0.
+> Upstream llama.cpp support for Hexagon is still early days: the NPU path has native kernels only for plain 4-bit formats like Q4_0, while popular formats like Q4_K_M fall back to CPU. Q4_0 (INT4) and IQ4_NL (verified with Qwen3-8B-IQ4_NL) have been tested so far — largest verified model: Qwen2.5-7B-Q4_0.
 > All measured speeds were taken on a Galaxy S25 (OneUI 8.0).
 
 Older 7-series chips (Gen 1 / Gen 2, v69) have no NPU engine — use CPU / GPU.
@@ -101,8 +101,8 @@ Older 7-series chips (Gen 1 / Gen 2, v69) have no NPU engine — use CPU / GPU.
 
 ## Known limitations
 
-- **Qwen3-family models deadlock the NPU engine** (an upstream llama.cpp bug) — the app will guide you to switch to the GPU engine
-- **Snapdragon 8 Gen 2 GPU driver bug**: Q4_K quants produce garbled output — use CPU instead (a device driver issue; may clear up on Android 15)
+- ~~Qwen3-family models deadlock the NPU engine~~: fixed in v1.3.8 (upstream llama.cpp fix)
+- ~~Snapdragon 8 Gen 2 GPU driver bug (garbled Q4_K output)~~: fixed in v1.3.8
 - MediaTek devices: CPU engine only
 - Sustained inference runs hot — plug in and watch the temperatures
 

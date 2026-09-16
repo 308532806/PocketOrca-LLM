@@ -8,7 +8,7 @@ Hexagon NPU · Adreno GPU · CPU 三引擎 · OpenAI 兼容端点 · 数据永�
 
 永久免费 · 无广告 · 无内购
 
-[下载最新版](../../releases/latest) · [使用手册](docs/USER-GUIDE-zh.md) · [发布说明](docs/RELEASE-NOTES-v1.3.5.md) · [报告问题](../../issues)
+[下载最新版](../../releases/latest) · [使用手册](docs/USER-GUIDE-zh.md) · [发布说明](docs/RELEASE-NOTES-v1.3.8.md) · [报告问题](../../issues)
 
 [English](README.md)
 
@@ -56,7 +56,7 @@ bash scripts/build-verify.sh   # 完整性验收（libs 闭包 / manifest / asse
 ## 性能要求
 
 - **推荐**：骁龙 8 Gen 2 及以上，12GB+ RAM
-- **NPU 引擎**：骁龙 8 Elite 及之后（HTP v75+）。跑 NPU 请选 Q4_0 版 GGUF（详见下方 NPU 兼容表说明）
+- **NPU 引擎**：骁龙 8 Elite 及之后（HTP v75+）。跑 NPU 请选 Q4_0 / IQ4_NL 版 GGUF（详见下方 NPU 兼容表说明）
 - **实测速度**（三星 S25，OneUI 8.0）：1B Q4_0 约 30 t/s；Qwen2.5-7B-Q4_0（NPU）稳定 10 t/s
 - **上下文**：12GB RAM 建议 ≤32K
 - 联发科及其他 ARMv8 机型可测试使用 CPU 引擎
@@ -77,7 +77,7 @@ bash scripts/build-verify.sh   # 完整性验收（libs 闭包 / manifest / asse
 | 骁龙 8 Elite | 830 | ✅ 主力实测 |
 | 骁龙 8 Gen 5 | 830 | ⚠️ 待验证 |
 | 骁龙 8 Gen 3 | 750 | ✅ 已验证 |
-| 骁龙 8 Gen 2 | 740 | ⚠️ Adreno 740 驱动缺陷，Q4_K 系乱码 |
+| 骁龙 8 Gen 2 | 740 | ✅ Q4_K 系乱码已修复（随 llama.cpp 升级）；效率仍低于 CPU，推荐 CPU |
 
 联发科（Mali GPU）暂不支持 GPU 引擎，请使用 CPU 引擎。
 
@@ -85,13 +85,13 @@ bash scripts/build-verify.sh   # 完整性验收（libs 闭包 / manifest / asse
 
 | SoC | HTP 架构 | 状态 |
 |---|---|---|
-| 骁龙 8 Elite (SM8750) | v75 | ✅ 已验证（1B 约 23 t/s；7B约10 t/s，Qwen3 系除外） |
+| 骁龙 8 Elite (SM8750) | v75 | ✅ 已验证（1B 约 23 t/s；7B Q4_0 约 10 t/s；Qwen3-8B Q4_0/IQ4_NL 实测正常） |
 | 骁龙 8 Elite Gen 5 (SM8850) | v79 | ⚠️ 待验证 |
 | 骁龙 8 Gen 5 | 新代 Hexagon | ⚠️ 待验证 |
 | 骁龙 7+ Gen 3 (SM7675) | v73 | ⚠️ 待真机验证 |
-| 骁龙 8 Gen 2 | v73 | ⚠️ 上游支持不完整，小模型（≤4B）可用，7B 等待上游修复 |
+| 骁龙 8 Gen 2 | v73 | ⚠️ 上游支持不完整，小模型（≤4B）可用 |
 
-> 上游 llama.cpp 对 Hexagon 的支持尚处早期，NPU 仅对 Q4_0 等简单 4-bit 格式有原生 kernel；Q4_K_M 等常用格式会回退 CPU。现阶段实测仅覆盖 Q4_0 (INT4)，作者最大验证模型为 Qwen2.5-7B-Q4_0。
+> 上游 llama.cpp 对 Hexagon 的支持尚处早期，NPU 仅对 Q4_0 等简单 4-bit 格式有原生 kernel；Q4_K_M 等常用格式会回退 CPU。现阶段实测覆盖 Q4_0 (INT4) 与 IQ4_NL（实测 Qwen3-8B-IQ4_NL 正常运行），作者最大验证模型为 Qwen2.5-7B-Q4_0。
 
 更早的 7 系（Gen 1 / Gen 2, v69）不支持 NPU 引擎，请使用 CPU / GPU 引擎。
 
@@ -100,8 +100,8 @@ bash scripts/build-verify.sh   # 完整性验收（libs 闭包 / manifest / asse
 
 ## 已知限制
 
-- **Qwen3 系模型在 NPU 引擎存在上游僵死问题**（llama.cpp 上游 bug），App 会自动引导切换 GPU 引擎
-- **骁龙 8 Gen 2 GPU 驱动缺陷**：Q4_K 系量化输出乱码，可改用 CPU（设备驱动问题，升 Android 15 可能自愈）
+- ~~Qwen3 系模型在 NPU 引擎存在上游僵死问题~~：v1.3.8 已修复（上游 llama.cpp 修复随升级带入）
+- ~~骁龙 8 Gen 2 GPU 驱动缺陷（Q4_K 系量化输出乱码）~~：v1.3.8 已修复
 - 联发科机型仅支持 CPU 引擎
 - 推理长时间高负载，注意散热
 
