@@ -17,7 +17,7 @@ Free forever · No ads · No in-app purchases
 ---
 
 > [!NOTE]
-> **Community fix fork**: fixes the NPU (HTP) engine startup crash ([issue #1](https://github.com/PocketOrca/PocketOrca-LLM/issues/1)) and adds an NPU / GPU / CPU speed test, on top of the official v1.4.0. How it is built: [mod/README.md](mod/README.md). Ready-to-install APK: [Releases](../../releases/latest).
+> **Community fix fork**: fixes the NPU (HTP) engine startup crash ([issue #1](https://github.com/PocketOrca/PocketOrca-LLM/issues/1)) and the GPU (OpenCL) load failure on older Adreno drivers, and adds an NPU / GPU / CPU speed test, on top of the official v1.4.0. How it is built: [mod/README.md](mod/README.md). Ready-to-install APK: [Releases](../../releases/latest).
 
 ---
 

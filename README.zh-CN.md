@@ -17,7 +17,7 @@ Hexagon NPU · Adreno GPU · CPU 三引擎 · OpenAI 兼容端点 · 数据永�
 ---
 
 > [!NOTE]
-> **本仓库为社区修复 fork**：在官方 v1.4.0 基础上修复了 NPU(HTP) 引擎启动崩溃（[issue #1](https://github.com/PocketOrca/PocketOrca-LLM/issues/1)），并新增 NPU / GPU / CPU 三引擎测速。构建方法与原理见 [mod/README.md](mod/README.md)，成品 APK 在 [Releases](../../releases/latest)。
+> **本仓库为社区修复 fork**：在官方 v1.4.0 基础上修复了 NPU(HTP) 引擎启动崩溃（[issue #1](https://github.com/PocketOrca/PocketOrca-LLM/issues/1)）与 GPU(OpenCL) 在旧 Adreno 驱动上的加载失败，并新增 NPU / GPU / CPU 三引擎测速。构建方法与原理见 [mod/README.md](mod/README.md)，成品 APK 在 [Releases](../../releases/latest)。
 
 ---
 
