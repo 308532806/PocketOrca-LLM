@@ -446,6 +446,8 @@ function setPortHint(e) {
 
 function setState(e, t) {
   state = e, $("stateDot").className = "ready" === e ? "" : e, $("stateMsg").textContent = t || "";
+  var _sp = $("statusPill");
+  _sp && (_sp.classList.toggle("running", "running" === e), _sp.classList.toggle("starting", "starting" === e));
   var n = $("btnMain");
   n.classList.remove("stop", "retry"), n.disabled = !1, "starting" === e ? (n.textContent = T("启动中…"), n.disabled = !0) : "running" === e ? (n.textContent = T("停止服务"), n.classList.add("stop")) : "error" === e ? (n.textContent = T("重试"), n.classList.add("retry")) : n.textContent = T("启动服务"), n.setAttribute("data-i18n", n.textContent), refreshEndpoint(), checkPort()
 }
@@ -1024,7 +1026,7 @@ function applyI18nDom() {
   }
 }, setInterval(cliRefreshState, 3e3);
 var _bmoeOn = false,
-  APP_VER = "1.4.0 fix2";
+  APP_VER = "1.4.0 fix3";
 
 function applyTheme(e) {
   var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;

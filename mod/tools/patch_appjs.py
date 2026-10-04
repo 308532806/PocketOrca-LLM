@@ -1,10 +1,17 @@
 # -*- coding: utf-8 -*-
-"""对 v1.4.0 的 app.js 做 fork 小修改（多语言词条 / 版本号 / 测速 guard）。"""
-import io, sys, json
+"""对 v1.4.0 官方 app.js（beautified 版）应用全部 fork 修改 → 生成当前版本。
 
-P = '/var/minis/workspace/porca-mod/assets/app.js'
-s = io.open(P, encoding='utf-8').read()
+用途：留档/复现全部修改（8 处），并可用于一致性校验：
+    python3 patch_appjs.py <原始_beautified.js> <输出.js>
+    diff 输出.js mod/assets/app.js   # 应完全一致
+"""
+import io, sys
+
+SRC = sys.argv[1] if len(sys.argv) > 1 else 'work/apkapp.beauty.js'
+DST = sys.argv[2] if len(sys.argv) > 2 else '/tmp/appjs-regen.js'
+s = io.open(SRC, encoding='utf-8').read()
 changes = 0
+
 
 def rep(old, new, tag):
     global s, changes
@@ -13,6 +20,7 @@ def rep(old, new, tag):
     s = s.replace(old, new, 1)
     changes += 1
     print('ok:', tag)
+
 
 TW_ADD = '''      "引擎测速": "引擎測速",
       "当前模型 · NPU/GPU/CPU 依次实测": "目前模型 · NPU/GPU/CPU 依序實測",
@@ -60,6 +68,7 @@ EN_ADD = '''      "引擎测速": "Engine speed test",
       "加载": "load",
       " · 已恢复原引擎": " · previous engine restored",'''
 
+# 1-2. i18n 词条（zh-TW / en）
 rep('''      "关闭": "關閉",
       "KV 卸载（省内存/速度权衡）": "KV 卸載（省記憶體/速度權衡）",''',
     '''      "关闭": "關閉",
@@ -72,31 +81,44 @@ rep('''      "关闭": "Off",
 ''' + EN_ADD + '''
       "KV 卸载（省内存/速度权衡）": "KV offload (RAM/speed tradeoff)",''', 'i18n-en')
 
+# 3. 版本号
 rep('  APP_VER = "1.4.0";',
-    '  APP_VER = "1.4.0 fix1";', 'APP_VER')
+    '  APP_VER = "1.4.0 fix3";', 'APP_VER')
 
+# 4. benchRunning 声明（fix1）
 rep('var lastSnap = "";',
     '''var lastSnap = "";
 /* fork add-on: 引擎测速状态（实现见 bench.js） */
 var benchRunning = false;''', 'benchRunning-decl')
 
+# 5. onMainButton guard（fix1）
 rep('''function onMainButton() {
   if ("running" !== state)''',
     '''function onMainButton() {
   if (benchRunning) { toastT("测速进行中，请稍候"); return; }
   if ("running" !== state)''', 'guard-main')
 
+# 6. pillToggle guard（fix1）
 rep('''function pillToggle() {
   "running" !== state''',
     '''function pillToggle() {
   if (benchRunning) { toastT("测速进行中，请稍候"); return; }
   "running" !== state''', 'guard-pill')
 
+# 7. setProfile guard（fix1）
 rep('''function setProfile(e, t) {
   if (_bmoeOn || "bmoe" !== e) {''',
     '''function setProfile(e, t) {
   if (benchRunning) return;
   if (_bmoeOn || "bmoe" !== e) {''', 'guard-profile')
 
-io.open(P, 'w', encoding='utf-8').write(s)
-print('---- all %d edits applied, %d bytes ----' % (changes, len(s.encode('utf-8'))))
+# 8. setState 同步 statusPill 样式类（fix3 — 修复开关滑块不动）
+rep('''function setState(e, t) {
+  state = e, $("stateDot").className = "ready" === e ? "" : e, $("stateMsg").textContent = t || "";''',
+    '''function setState(e, t) {
+  state = e, $("stateDot").className = "ready" === e ? "" : e, $("stateMsg").textContent = t || "";
+  var _sp = $("statusPill");
+  _sp && (_sp.classList.toggle("running", "running" === e), _sp.classList.toggle("starting", "starting" === e));''', 'setState-statusPill')
+
+io.open(DST, 'w', encoding='utf-8').write(s)
+print('---- all %d edits applied -> %s (%d bytes) ----' % (changes, DST, len(s.encode('utf-8'))))

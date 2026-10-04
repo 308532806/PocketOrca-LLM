@@ -2,6 +2,15 @@ name: Build mod APK (NPU fix + OpenCL compat + benchmark)
 
 on:
   workflow_dispatch:
+    inputs:
+      publish:
+        description: '发布 Release（false = 仅构建并上传 artifact）'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
   push:
     paths:
       - 'mod/**'
@@ -11,8 +20,8 @@ permissions:
   contents: write
 
 env:
-  MOD_TAG: v1.4.0-fix2
-  APK_NAME: PocketOrca-LLM-v1.4.0-fix2.apk
+  MOD_TAG: v1.4.0-fix3
+  APK_NAME: PocketOrca-LLM-v1.4.0-fix3.apk
 
 jobs:
   build:
@@ -43,7 +52,7 @@ jobs:
             "https://github.com/PocketOrca/PocketOrca-LLM/releases/download/v1.4.0/PocketOrca-LLM-v1.4.0-release.apk"
           echo "14885aadb8d38aee9fc3ebc9fc393f148788901a2d63cdc082ff8ac5008e5478  official.apk" | sha256sum -c -
 
-      - name: Repack with mods (NPU DMA64 + OpenCL CL3.0 compat + benchmark assets)
+      - name: Repack with mods (NPU DMA64 + OpenCL compat + benchmark assets)
         run: |
           mkdir -p out
           python3 mod/tools/build_mod.py official.apk mod out/unsigned.apk
@@ -92,14 +101,14 @@ jobs:
         run: |
           SHA=$(sha256sum "out/$APK_NAME" | awk '{print $1}')
           SIZE=$(stat -c%s "out/$APK_NAME")
-          cp mod/release-notes/v1.4.0-fix2.md /tmp/notes.md
+          cp mod/release-notes/v1.4.0-fix3.md /tmp/notes.md
           {
             echo ""
             echo "---"
             echo ""
             echo "- **APK SHA-256**: \`$SHA\`"
             echo "- **APK 大小**: ${SIZE} bytes"
-            echo "- **签名证书 SHA-256 指纹**: \`78:BC:E3:D1:D5:1D:F3:12:F2:A2:CC:41:30:62:D5:1D:9B:79:F1:C6:00:A8:D5:B3:FA:AA:B8:09:55:78:35:EC\`（自签名；与官方版本不同，官方版需先卸载；fix1 用户可直接覆盖安装）"
+            echo "- **签名证书 SHA-256 指纹**: \`78:BC:E3:D1:D5:1D:F3:12:F2:A2:CC:41:30:62:D5:1D:9B:79:F1:C6:00:A8:D5:B3:FA:AA:B8:09:55:78:35:EC\`（自签名；与官方版本不同，官方版需先卸载；fix1/fix2 用户可直接覆盖安装）"
             echo "- **构建**: GitHub Actions run ID \`$GITHUB_RUN_ID\`"
             echo "- **说明**: 本 APK 除列出的修改外，与官方 v1.4.0 逐字节一致；未改动 classes.dex。"
           } >> /tmp/notes.md
@@ -112,10 +121,11 @@ jobs:
           path: out/${{ env.APK_NAME }}
 
       - name: Create / update release
+        if: github.event_name == 'workflow_dispatch' && inputs.publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.MOD_TAG }}
-          name: "PocketOrca-LLM v1.4.0 fix2（NPU 修复 + GPU 兼容 + 三引擎测速）"
+          name: "PocketOrca-LLM v1.4.0 fix3（NPU 修复 + GPU 兼容 + 三引擎测速）"
           body_path: /tmp/notes.md
           files: out/${{ env.APK_NAME }}
           fail_on_unmatched_files: true

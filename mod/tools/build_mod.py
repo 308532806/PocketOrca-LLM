@@ -7,21 +7,19 @@ PocketOrca-LLM v1.4.0 修复包构建（APK surgery，不重编 dex）
 
 修改清单：
  1) libggml-hexagon.so — NPU(HTP) 启动崩溃修复（issue #1）
-      llvm PR #29197 的 DMA64 扩展映射与内置旧 libcdsprpc.so 不兼容，
-      arch > 79 机型 fastrpc_mmap 失败 (0xe) → exit 134。
-      两处 strb w8 -> strb wzr 强制 opt_dma64 = 0：
-        0xC6544 / 0xC997C:  28212b39 -> 3f212b39
- 2) libggml-opencl.so — 旧 Adreno 驱动兼容（缺 OpenCL 3.0 符号）
-      旧驱动（如 Adreno 620 / SM7250）的 libOpenCL.so 不导出
-      clCreateBufferWithProperties，而 v1.4.0 的 libggml-opencl 因
-      BIND_NOW 在加载时强依赖该符号 → GPU(JNI) 引擎 dlopen 失败：
-      "cannot locate symbol clCreateBufferWithProperties"。
-      该符号仅用于 GGML_OPENCL_ADRENO_USE_LARGE_BUFFER（默认关闭、
-      X2 类新驱动专属）的大型缓冲区重试路径。修复：
-        a) dynstr @0xF19D: "clCreateBufferWithProperties" -> "clCreateBuffer"
-           （等长 28 字节，尾部填零；仅动 dynstr，.debug_str/.strtab 保留）
-        b) 调用点 @0x331270（vaddr 0x335270）: bl -> nop
-           （该实验路径被静默跳过；其余逻辑不变）
+      DMA64 扩展映射与内置旧 libcdsprpc.so 不兼容 → fastrpc_mmap 0xe → exit 134。
+      0xC6544 / 0xC997C:  strb w8 -> strb wzr  (opt_dma64 = 0)
+ 2) libggml-opencl.so — 旧 Adreno 驱动兼容（缺 OpenCL 3.0 / 2.1 符号）
+      该库因 BIND_NOW 在加载期解析全部符号；旧驱动不导出
+      clCreateBufferWithProperties（CL3.0）与 clGetKernelSubGroupInfo（CL2.1）。
+      a) dynstr @0xF19D: clCreateBufferWithProperties -> clCreateBuffer（等长 29B）
+         callsite @0x331270: bl -> nop
+         （该调用仅属于 GGML_OPENCL_ADRENO_USE_LARGE_BUFFER 默认关闭的实验路径）
+      b) dynstr @0xF20C: clGetKernelSubGroupInfo -> clGetDeviceInfo（等长 24B，占位；
+         调用点已短路，不会真的调用）
+         callsites @0x3394AC / @0x339560: bl -> mov w0,#1
+         （= 查询返回失败 → 走 llama.cpp 既有降级：禁用两个 mamba2 专用
+            subgroup kernel；老驱动本就不具备该查询能力）
  3) assets/app.js、index.html 替换；assets/bench.js 新增（三引擎测速）
 
 用法: python3 build_mod.py <official_v1.4.0.apk> <mod_dir> <out_apk>
@@ -41,13 +39,24 @@ HEXAGON_ANCHORS = {
     0xC6544: (bytes.fromhex("28212b39"), bytes.fromhex("3f212b39")),
     0xC997C: (bytes.fromhex("28212b39"), bytes.fromhex("3f212b39")),
 }
-# --- libggml-opencl.so 补丁点（文件偏移） ---
-OPENCL_DYNSTR_OFF = 0xF19D
-OPENCL_CALLSITE_OFF = 0x331270
-CL_NAME_OLD = b"clCreateBufferWithProperties\x00"          # 28 bytes
-CL_NAME_NEW = b"clCreateBuffer\x00" + b"\x00" * 14         # 28 bytes 等长
-CL_CALL_OLD = bytes.fromhex("00fd0094")                    # bl clCreateBufferWithProperties@plt
-CL_CALL_NEW = bytes.fromhex("1f2003d5")                    # nop
+
+# --- libggml-opencl.so 补丁点（全部为文件偏移） ---
+CL3_DYNSTR_OFF  = 0xF19D     # clCreateBufferWithProperties -> clCreateBuffer
+CL3_CALLSITE_OFF = 0x331270  # bl -> nop
+CSG_DYNSTR_OFF  = 0xF20C     # clGetKernelSubGroupInfo -> clGetDeviceInfo
+CSG_CALL1_OFF   = 0x3394AC   # bl -> mov w0,#1
+CSG_CALL2_OFF   = 0x339560   # bl -> mov w0,#1
+
+CL3_NAME_OLD = b"clCreateBufferWithProperties\x00"        # 29 bytes
+CL3_NAME_NEW = b"clCreateBuffer\x00" + b"\x00" * 14       # 29 bytes（等长）
+CSG_NAME_OLD = b"clGetKernelSubGroupInfo\x00"             # 24 bytes
+CSG_NAME_NEW = b"clGetDeviceInfo\x00" + b"\x00" * 8       # 24 bytes（等长）
+
+CL3_CALL_OLD = bytes.fromhex("00fd0094")   # bl clCreateBufferWithProperties@plt
+CL3_CALL_NEW = bytes.fromhex("1f2003d5")   # nop
+CSG_CALL1_OLD = bytes.fromhex("85dc0094")  # bl clGetKernelSubGroupInfo@plt
+CSG_CALL2_OLD = bytes.fromhex("58dc0094")
+CSG_CALL_NEW = bytes.fromhex("20008052")   # mov w0, #1  (非 CL_SUCCESS)
 
 REPLACE_ASSETS = ["assets/app.js", "assets/index.html", "assets/bench.js"]
 
@@ -73,16 +82,27 @@ def patch_hexagon(data):
 def patch_opencl(data):
     assert hashlib.sha256(data).hexdigest() == EXPECT_OPENCL_SHA256, "opencl .so sha256 mismatch"
     d = bytearray(data)
-    # a) dynstr 改名（仅 dynstr 一处；等长，不影响后续字符串）
-    cur = bytes(d[OPENCL_DYNSTR_OFF:OPENCL_DYNSTR_OFF + len(CL_NAME_OLD)])
-    assert cur == CL_NAME_OLD, "[opencl] dynstr anchor mismatch @%#x: %r" % (OPENCL_DYNSTR_OFF, cur)
-    d[OPENCL_DYNSTR_OFF:OPENCL_DYNSTR_OFF + len(CL_NAME_OLD)] = CL_NAME_NEW
-    leftover = bytes(d).count(b"clCreateBufferWithProperties")
-    assert leftover == 2, "[opencl] expected 2 leftovers (.debug_str/.strtab), got %d" % leftover
-    # b) 调用点 -> nop
-    cur2 = bytes(d[OPENCL_CALLSITE_OFF:OPENCL_CALLSITE_OFF + 4])
-    assert cur2 == CL_CALL_OLD, "[opencl] callsite anchor mismatch @%#x: %s" % (OPENCL_CALLSITE_OFF, cur2.hex())
-    d[OPENCL_CALLSITE_OFF:OPENCL_CALLSITE_OFF + 4] = CL_CALL_NEW
+
+    # a1) dynstr 改名（仅 dynstr 一处；等长，不影响后续字符串）
+    cur = bytes(d[CL3_DYNSTR_OFF:CL3_DYNSTR_OFF + len(CL3_NAME_OLD)])
+    assert cur == CL3_NAME_OLD, "[opencl] CL3 dynstr anchor mismatch @%#x: %r" % (CL3_DYNSTR_OFF, cur)
+    d[CL3_DYNSTR_OFF:CL3_DYNSTR_OFF + len(CL3_NAME_OLD)] = CL3_NAME_NEW
+    assert bytes(d).count(b"clCreateBufferWithProperties") == 2, "[opencl] CL3 leftover != 2"
+    # a2) 调用点 -> nop
+    cur = bytes(d[CL3_CALLSITE_OFF:CL3_CALLSITE_OFF + 4])
+    assert cur == CL3_CALL_OLD, "[opencl] CL3 callsite mismatch @%#x: %s" % (CL3_CALLSITE_OFF, cur.hex())
+    d[CL3_CALLSITE_OFF:CL3_CALLSITE_OFF + 4] = CL3_CALL_NEW
+
+    # b1) dynstr 改名（占位名；调用点已短路）
+    cur = bytes(d[CSG_DYNSTR_OFF:CSG_DYNSTR_OFF + len(CSG_NAME_OLD)])
+    assert cur == CSG_NAME_OLD, "[opencl] CSG dynstr anchor mismatch @%#x: %r" % (CSG_DYNSTR_OFF, cur)
+    d[CSG_DYNSTR_OFF:CSG_DYNSTR_OFF + len(CSG_NAME_OLD)] = CSG_NAME_NEW
+    assert bytes(d).count(b"clGetKernelSubGroupInfo") == 2, "[opencl] CSG leftover != 2"
+    # b2) 两个调用点 -> mov w0,#1（返回失败 → 既有降级路径）
+    for off, old in ((CSG_CALL1_OFF, CSG_CALL1_OLD), (CSG_CALL2_OFF, CSG_CALL2_OLD)):
+        cur = bytes(d[off:off + 4])
+        assert cur == old, "[opencl] CSG callsite mismatch @%#x: %s" % (off, cur.hex())
+        d[off:off + 4] = CSG_CALL_NEW
     return bytes(d)
 
 
@@ -119,8 +139,7 @@ def main():
             elif name == OPENCL:
                 data = patch_opencl(zin.read(name))
                 patched += 1
-                print("patched: opencl CL3.0 compat, dynstr @%#x + callsite @%#x"
-                      % (OPENCL_DYNSTR_OFF, OPENCL_CALLSITE_OFF))
+                print("patched: opencl compat (CL3 dynstr+callsite, CSG dynstr+2 callsites)")
             else:
                 data = zin.read(name)
                 kept += 1
@@ -130,7 +149,6 @@ def main():
             zi.internal_attr = it.internal_attr
             zi.create_system = it.create_system
             zout.writestr(zi, data)
-        # 原 APK 中不存在的新增条目
         for a in new_assets:
             zi = zipfile.ZipInfo(a)
             zi.compress_type = zipfile.ZIP_DEFLATED
@@ -145,10 +163,13 @@ def main():
     z2 = zipfile.ZipFile(out)
     so = z2.read(HEXAGON)
     for off, (old, new) in HEXAGON_ANCHORS.items():
-        assert so[off:off + 4] == new, "verify failed @%#x" % off
+        assert so[off:off + 4] == new, "verify hexagon failed @%#x" % off
     oc = z2.read(OPENCL)
-    assert oc[OPENCL_DYNSTR_OFF:OPENCL_DYNSTR_OFF + 15] == b"clCreateBuffer\x00", "verify dynstr failed"
-    assert oc[OPENCL_CALLSITE_OFF:OPENCL_CALLSITE_OFF + 4] == CL_CALL_NEW, "verify callsite failed"
+    assert oc[CL3_DYNSTR_OFF:CL3_DYNSTR_OFF + 15] == b"clCreateBuffer\x00"
+    assert oc[CL3_CALLSITE_OFF:CL3_CALLSITE_OFF + 4] == CL3_CALL_NEW
+    assert oc[CSG_DYNSTR_OFF:CSG_DYNSTR_OFF + 16] == b"clGetDeviceInfo\x00"
+    assert oc[CSG_CALL1_OFF:CSG_CALL1_OFF + 4] == CSG_CALL_NEW
+    assert oc[CSG_CALL2_OFF:CSG_CALL2_OFF + 4] == CSG_CALL_NEW
     assert z2.read("assets/bench.js").find(b"benchStart") >= 0
     arsc = [i for i in z2.infolist() if i.filename == "resources.arsc"][0]
     assert arsc.compress_type == 0, "resources.arsc must stay stored"
@@ -156,7 +177,7 @@ def main():
     size = os.path.getsize(out)
     print("repacked: %s (%d bytes), kept=%d replaced=%d patched=%d sig_removed=%d"
           % (out, size, kept, replaced, patched, skipped_sig))
-    print("verify: hexagon + opencl patches + bench.js + stored arsc  OK")
+    print("verify: hexagon + opencl(5 pts) + bench.js + stored arsc  OK")
 
 
 if __name__ == "__main__":
