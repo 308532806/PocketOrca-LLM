@@ -237,6 +237,9 @@ textarea#cliPrompt {
 #recCard .rec-row b { color: var(--text); font-weight: 600; }
 #recCard .rec-dev { font-size: 12px; color: var(--faint); margin-bottom: 6px; }
 #recCard .rec-note { font-size: 12px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+#recHead2 .chev { margin-left: auto; font-size: 14px; transition: transform .18s; }
+#recCard.open #recHead2 .chev { transform: rotate(90deg); }
+#recDrawer { flex-direction: column; gap: 4px; }
 #recCard .rec-actions { display: flex; gap: 8px; margin-top: 10px; }
 #recCard .rec-actions button { flex: 1; }
 input[type="range"] { flex: 1; max-width: 46%; accent-color: var(--primary); height: 26px; }
@@ -498,10 +501,12 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
       </div>
 
       <div class="card" id="recCard">
-        <div class="card-title"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z"/></svg><span data-i18n="推荐参数">推荐参数</span><span class="dim-inline" id="recHead"></span></div>
-        <div id="recBody"></div>
-        <div class="rec-actions">
-          <button onclick="applyRecommend()" data-i18n="一键应用">一键应用</button>
+        <div class="card-title" id="recHead2" onclick="toggleRec()"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z"/></svg><span data-i18n="推荐参数">推荐参数</span><span class="dim-inline" id="recHead"></span><span class="chev" id="recChev">▸</span></div>
+        <div id="recDrawer" class="drawer" style="display:none">
+          <div id="recBody"></div>
+          <div class="rec-actions">
+            <button onclick="applyRecommend()" data-i18n="一键应用">一键应用</button>
+          </div>
         </div>
       </div>
 
@@ -551,7 +556,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
       </div>
 
       <button id="btnMain" onclick="onMainButton()" data-i18n="启动服务">启动服务</button>
-      <div id="verLine">1.4.0 fix6 · NPU + GPU 兼容修复 · 自选测速 · 推荐参数 · llama.cpp (MIT)</div>
+      <div id="verLine">1.4.0 fix7 · 状态恢复 + 参数展示 + 推荐卡片折叠 · llama.cpp (MIT)</div>
     </div>
 
     <!-- ================= CLI PAGE ================= -->

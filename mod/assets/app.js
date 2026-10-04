@@ -378,6 +378,12 @@ function toastT(e) {
   toast(T(e))
 }
 
+function toggleRec() {
+  var e = $("recCard"),
+    t = !e.classList.contains("open");
+  e.classList.toggle("open", t), $("recDrawer").style.display = t ? "flex" : "none";
+  try { localStorage.setItem("npullmRecOpen", t ? "1" : "0"); } catch (e) {}
+}
 function toggleParams() {
   var e = $("paramsCard"),
     t = !e.classList.contains("open");
@@ -462,7 +468,10 @@ function renderCard() {
   if (!e) return $("rowThinking").style.display = "none", void applyQwen3Guard();
   $("mcName").textContent = model.name;
   var t = (model.sizeBytes / 1073741824).toFixed(2);
-  $("mcMeta").textContent = t + " GB · " + (model.mtime || "?");
+  // fix7 bug3: 附加当前生效参数（ctx/线程/ubatch/KV），一目了然
+  var _ctxK = ctxSize >= 1024 ? (ctxSize / 1024) + "K" : ctxSize;
+  var _kv = $("kvoff") && $("kvoff").checked ? "KV开" : "KV关";
+  $("mcMeta").textContent = t + " GB · ctx " + _ctxK + " · " + threads + "t · ub " + (ubatch || "off") + " · " + _kv;
   var n = $("mcQuant");
   n.className = "quant", n.style.display = "none", $("rowThinking").style.display = qwen3Model() ? "flex" : "none", applyQwen3Guard()
 }
@@ -492,7 +501,7 @@ function setProfile(e, t) {
 function setCtx(e) {
   ctxSize = parseInt(e, 10) || 8192;
   for (var t = document.querySelectorAll("#ctxSeg button"), n = 0; n < t.length; n++) t[n].classList.toggle("active", parseInt(t[n].dataset.ctx, 10) === ctxSize);
-  save()
+  save(), renderCard()
 }
 
 function stepUbatch(e) {
@@ -500,11 +509,11 @@ function stepUbatch(e) {
     n = t.indexOf(ubatch);
   n < 0 && (n = 1);
   var a = t[Math.min(t.length - 1, Math.max(0, n + e))];
-  ubatch = a, $("ubatchVal").textContent = ubatch, save()
+  ubatch = a, $("ubatchVal").textContent = ubatch, save(), renderCard()
 }
 
 function stepThreads(e) {
-  threads = Math.min(8, Math.max(0, threads + e)), $("threadsVal").textContent = threads, save()
+  threads = Math.min(8, Math.max(0, threads + e)), $("threadsVal").textContent = threads, save(), renderCard()
 }
 
 function save() {
@@ -529,7 +538,9 @@ function restoreParams() {
       return t === e.ubatch
     }) && (ubatch = e.ubatch), "number" == typeof e.threads && (threads = Math.min(8, Math.max(0, parseInt(e.threads, 10) || 0))), "boolean" == typeof e.kvoff && ($("kvoff").checked = e.kvoff), e.port && ($("port").value = e.port), "boolean" == typeof e.reasoning && ($("reasoning").checked = e.reasoning)
   } catch (e) {}
-  $("threadsVal").textContent = threads, $("ubatchVal").textContent = ubatch || T("关闭"), $("paramsCard").classList.toggle("open", "1" === localStorage.getItem("npullmParamsOpen")), $("params").style.display = $("paramsCard").classList.contains("open") ? "flex" : "none", setProfile(profileId, !0), setCtx(ctxSize)
+  $("threadsVal").textContent = threads, $("ubatchVal").textContent = ubatch || T("关闭"), $("paramsCard").classList.toggle("open", "1" === localStorage.getItem("npullmParamsOpen")), $("params").style.display = $("paramsCard").classList.contains("open") ? "flex" : "none";
+  try { var _ro = "1" === localStorage.getItem("npullmRecOpen"); $("recCard").classList.toggle("open", _ro), $("recDrawer").style.display = _ro ? "flex" : "none"; } catch (_re) {}
+  setProfile(profileId, !0), setCtx(ctxSize)
 }
 
 function port() {
@@ -1035,7 +1046,7 @@ function applyI18nDom() {
   }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-  APP_VER = "1.4.0 fix6";
+  APP_VER = "1.4.0 fix7";
 
 function applyTheme(e) {
   var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1187,7 +1198,14 @@ $("langSel").addEventListener("change", function() {
       var e = bridge("lastModelJson");
       e && window.onModelPicked(JSON.parse(e))
     } catch (e) {}
-    localIp = bridge("getLocalIp"), refreshEndpoint(), checkPort()
+    localIp = bridge("getLocalIp"), refreshEndpoint(), checkPort();
+    // fix7 bug1: 页面重建后 state 变量重置为 ready，但服务可能还在跑。
+    // 立即从 Java 侧查询真实状态并恢复 UI，不等 10s 轮询。
+    try {
+      var _st = JSON.parse(bridge("getStatus") || "null");
+      if (_st && _st.running) setState("running", T("运行中 · ") + (_st.port || port()));
+      else if (_st && _st.state === "starting") setState("starting");
+    } catch (_e) {}
   }(), window.onBmoeDlStatus = function(e) {
     var t = $("bmoeDlStat"),
       n = $("bmoeDlBar"),
