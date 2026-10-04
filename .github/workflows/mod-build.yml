@@ -101,7 +101,7 @@ jobs:
         run: |
           SHA=$(sha256sum "out/$APK_NAME" | awk '{print $1}')
           SIZE=$(stat -c%s "out/$APK_NAME")
-          cp mod/release-notes/v1.4.0-fix4.md /tmp/notes.md
+          cp mod/release-notes/v1.4.0-fix5.md /tmp/notes.md
           {
             echo ""
             echo "---"

@@ -147,7 +147,14 @@ function benchRenderRows() {
     }
     html += "</span></div>";
   }
-  box.innerHTML = html;
+  // U4: 淡入过渡，避免闪烁（Node 环境 fallback）
+  box.style.opacity = "0";
+  var raf = typeof requestAnimationFrame !== "undefined" ? requestAnimationFrame : function(f) { setTimeout(f, 16); };
+  raf(function() {
+    box.innerHTML = html;
+    box.style.transition = "opacity .15s";
+    box.style.opacity = "1";
+  });
 }
 
 /* ---- HTTP 封装（带看门狗，防请求悬挂） ---- */

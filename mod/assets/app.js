@@ -471,6 +471,10 @@ function applyQwen3Guard() {}
 
 function setProfile(e, t) {
   if (benchRunning) return;
+  // U3: 引擎切换 loading 态，防止重复点击
+  var seg = $("engineSeg");
+  if (seg) { seg.style.opacity = "0.5"; seg.style.pointerEvents = "none"; }
+  setTimeout(function() { if (seg) { seg.style.opacity = ""; seg.style.pointerEvents = ""; } }, 600);
   if (_bmoeOn || "bmoe" !== e) {
     profileId = e;
     for (var n = document.querySelectorAll("#engineSeg button"), a = 0; a < n.length; a++) n[a].classList.toggle("active", n[a].dataset.profile === e);
@@ -616,7 +620,7 @@ setInterval(function() {
   }
 }, 500), $("port").addEventListener("change", function() {
   save(), refreshEndpoint(), checkPort()
-}), setInterval(checkPort, 3e3), $("log").addEventListener("scroll", function() {
+}), setInterval(function(){if($("pageSrv").classList.contains("active"))checkPort()},10000), $("log").addEventListener("scroll", function() {
   var e = this;
   autoScroll = e.scrollTop + e.clientHeight >= e.scrollHeight - 24, $("autoScrollBadge").classList.toggle("on", autoScroll)
 }), $("engineSeg").addEventListener("click", function(e) {
@@ -1029,7 +1033,7 @@ function applyI18nDom() {
   } catch (e) {
     $("cliOut").textContent = T("解析失败：") + e.message
   }
-}, setInterval(cliRefreshState, 3e3);
+}, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
   APP_VER = "1.4.0 fix5";
 
@@ -1211,4 +1215,4 @@ $("langSel").addEventListener("change", function() {
       var t = bridge("bmoeDlStatus");
       t && window.onBmoeDlStatus && window.onBmoeDlStatus(t)
     }
-  }, 1200);
+  }, 3000);
