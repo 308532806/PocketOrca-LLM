@@ -20,6 +20,13 @@ PocketOrca-LLM v1.4.0 修复包构建（APK surgery，不重编 dex）
          callsites @0x3394AC / @0x339560: bl -> mov w0,#1
          （= 查询返回失败 → 走 llama.cpp 既有降级：禁用两个 mamba2 专用
             subgroup kernel；老驱动本就不具备该查询能力）
+       c) fix4: flash_attn_repack kernel 编译失败降级（旧驱动缺 cl_khr_3d_image_writes）
+          repack 构建调用原为 fatal=true：编译失败 → exit(1)；JNI 进程内运行
+          导致整个 App 闪退（真机 EXIT_SELF 实证）。修复：
+            @0x3405F4: fatal 参数 1 -> 0（编译失败返回 nullptr 不再退出）
+            @0x340640/0x340660/0x340680/0x3406A0: 4 处 CL_CHECK 失败跳转 cbnz -> nop
+          （wmm prefill 路径在本包不可达：Adreno bin 内核库不随包分发，
+            use_fa_bin_kernels_prefill 恒 false；4 个句柄保持 NULL 无任何使用）
  3) assets/app.js、index.html 替换；assets/bench.js 新增（三引擎测速）
 
 用法: python3 build_mod.py <official_v1.4.0.apk> <mod_dir> <out_apk>
@@ -57,6 +64,16 @@ CL3_CALL_NEW = bytes.fromhex("1f2003d5")   # nop
 CSG_CALL1_OLD = bytes.fromhex("85dc0094")  # bl clGetKernelSubGroupInfo@plt
 CSG_CALL2_OLD = bytes.fromhex("58dc0094")
 CSG_CALL_NEW = bytes.fromhex("20008052")   # mov w0, #1  (非 CL_SUCCESS)
+
+# fix4: repack 编译失败降级（fatal=1 -> 0；4 处 CL_CHECK 失败跳转 -> nop）
+FIX4_PATCH_SET = [
+    (0x3405F4, bytes.fromhex("24"),       bytes.fromhex("04"),       "fatal flag"),
+    (0x340640, bytes.fromhex("e3ab0535"), bytes.fromhex("1f2003d5"), "cbnz->nop #1"),
+    (0x340660, bytes.fromhex("a3ad0535"), bytes.fromhex("1f2003d5"), "cbnz->nop #2"),
+    (0x340680, bytes.fromhex("63af0535"), bytes.fromhex("1f2003d5"), "cbnz->nop #3"),
+    (0x3406A0, bytes.fromhex("23b10535"), bytes.fromhex("1f2003d5"), "cbnz->nop #4"),
+]
+EXPECT_FIXED_OPENCL_SHA256 = "ac6bb2091f331ad024cbbf3a587a7982a686389ee44916d31d93ff21444adb76"
 
 REPLACE_ASSETS = ["assets/app.js", "assets/index.html", "assets/bench.js"]
 
@@ -103,7 +120,16 @@ def patch_opencl(data):
         cur = bytes(d[off:off + 4])
         assert cur == old, "[opencl] CSG callsite mismatch @%#x: %s" % (off, cur.hex())
         d[off:off + 4] = CSG_CALL_NEW
-    return bytes(d)
+
+    # c) fix4: repack 编译失败降级
+    for off, old, new, tag in FIX4_PATCH_SET:
+        cur = bytes(d[off:off + len(old)])
+        assert cur == old, "[opencl] FIX4 %s mismatch @%#x: %s" % (tag, off, cur.hex())
+        d[off:off + len(new)] = new
+    out = bytes(d)
+    assert hashlib.sha256(out).hexdigest() == EXPECT_FIXED_OPENCL_SHA256, \
+        "opencl fixed sha256 mismatch (must equal device-verified build)"
+    return out
 
 
 def main():
@@ -139,7 +165,7 @@ def main():
             elif name == OPENCL:
                 data = patch_opencl(zin.read(name))
                 patched += 1
-                print("patched: opencl compat (CL3 dynstr+callsite, CSG dynstr+2 callsites)")
+                print("patched: opencl compat (CL3+CSG symbols, wmm-repack compile degrade)")
             else:
                 data = zin.read(name)
                 kept += 1
@@ -170,6 +196,8 @@ def main():
     assert oc[CSG_DYNSTR_OFF:CSG_DYNSTR_OFF + 16] == b"clGetDeviceInfo\x00"
     assert oc[CSG_CALL1_OFF:CSG_CALL1_OFF + 4] == CSG_CALL_NEW
     assert oc[CSG_CALL2_OFF:CSG_CALL2_OFF + 4] == CSG_CALL_NEW
+    for off, old, new, tag in FIX4_PATCH_SET:
+        assert oc[off:off + len(new)] == new, "verify fix4 failed @%#x (%s)" % (off, tag)
     assert z2.read("assets/bench.js").find(b"benchStart") >= 0
     arsc = [i for i in z2.infolist() if i.filename == "resources.arsc"][0]
     assert arsc.compress_type == 0, "resources.arsc must stay stored"
@@ -177,7 +205,7 @@ def main():
     size = os.path.getsize(out)
     print("repacked: %s (%d bytes), kept=%d replaced=%d patched=%d sig_removed=%d"
           % (out, size, kept, replaced, patched, skipped_sig))
-    print("verify: hexagon + opencl(5 pts) + bench.js + stored arsc  OK")
+    print("verify: hexagon + opencl(10 pts) + bench.js + stored arsc  OK")
 
 
 if __name__ == "__main__":

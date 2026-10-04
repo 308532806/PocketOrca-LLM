@@ -83,7 +83,7 @@ rep('''      "关闭": "Off",
 
 # 3. 版本号
 rep('  APP_VER = "1.4.0";',
-    '  APP_VER = "1.4.0 fix3";', 'APP_VER')
+    '  APP_VER = "1.4.0 fix4";', 'APP_VER')
 
 # 4. benchRunning 声明（fix1）
 rep('var lastSnap = "";',

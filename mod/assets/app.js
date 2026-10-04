@@ -1026,7 +1026,7 @@ function applyI18nDom() {
   }
 }, setInterval(cliRefreshState, 3e3);
 var _bmoeOn = false,
-  APP_VER = "1.4.0 fix3";
+  APP_VER = "1.4.0 fix4";
 
 function applyTheme(e) {
   var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
