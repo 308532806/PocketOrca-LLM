@@ -119,6 +119,8 @@ var I18N = {
       "已取消": "已取消",
       "加载": "載入",
       " · 已恢复原引擎": " · 已恢復原引擎",
+      "低内存/老机型建议只选 CPU（GPU 可能造成系统压力）": "低記憶體/舊機型建議只選 CPU（GPU 可能造成系統壓力）",
+      "未选择任何引擎，请至少勾选一个": "未選擇任何引擎，請至少勾選一個",
       "KV 卸载（省内存/速度权衡）": "KV 卸載（省記憶體/速度權衡）",
       "NPU 下影响 CPU 侧辅助计算": "NPU 下影響 CPU 側輔助計算",
       "Qwen3 系 · 开启更慢更深": "Qwen3 系 · 開啟更慢更深",
@@ -286,6 +288,8 @@ var I18N = {
       "已取消": "Cancelled",
       "加载": "load",
       " · 已恢复原引擎": " · previous engine restored",
+      "低内存/老机型建议只选 CPU（GPU 可能造成系统压力）": "On low-memory / older devices prefer CPU (GPU may stress the system)",
+      "未选择任何引擎，请至少勾选一个": "No engine selected — pick at least one",
       "KV 卸载（省内存/速度权衡）": "KV offload (RAM/speed tradeoff)",
       "NPU 下影响 CPU 侧辅助计算": "Affects CPU-side helper work under NPU",
       "Qwen3 系 · 开启更慢更深": "Qwen3 series · slower, deeper when on",
@@ -445,9 +449,9 @@ function setPortHint(e) {
 }
 
 function setState(e, t) {
-  state = e, $("stateDot").className = "ready" === e ? "" : e, $("stateMsg").textContent = t || "";
+  state = e, $("stateMsg").textContent = t || "";
   var _sp = $("statusPill");
-  _sp && (_sp.classList.toggle("running", "running" === e), _sp.classList.toggle("starting", "starting" === e));
+  _sp && (_sp.classList.toggle("running", "running" === e), _sp.classList.toggle("starting", "starting" === e), _sp.classList.toggle("error", "error" === e));
   var n = $("btnMain");
   n.classList.remove("stop", "retry"), n.disabled = !1, "starting" === e ? (n.textContent = T("启动中…"), n.disabled = !0) : "running" === e ? (n.textContent = T("停止服务"), n.classList.add("stop")) : "error" === e ? (n.textContent = T("重试"), n.classList.add("retry")) : n.textContent = T("启动服务"), n.setAttribute("data-i18n", n.textContent), refreshEndpoint(), checkPort()
 }
@@ -605,6 +609,7 @@ function exportLog() {
   toast(e ? T("已导出: ") + e : T("导出失败（无日志或无权限）"))
 }
 setInterval(function() {
+  if (!$("pageLogs").classList.contains("active")) return;
   if ("ready" !== state || 0 !== $("log").textContent.length) {
     var e = bridge("getLog");
     null != e && e !== lastSnap && (lastSnap && 0 === e.indexOf(lastSnap) ? appendLog(e.slice(lastSnap.length)) : ($("log").textContent = e, $("log").scrollTop = $("log").scrollHeight), lastSnap = e)
@@ -1026,7 +1031,7 @@ function applyI18nDom() {
   }
 }, setInterval(cliRefreshState, 3e3);
 var _bmoeOn = false,
-  APP_VER = "1.4.0 fix4";
+  APP_VER = "1.4.0 fix5";
 
 function applyTheme(e) {
   var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;

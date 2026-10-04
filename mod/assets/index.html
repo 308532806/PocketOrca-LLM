@@ -31,13 +31,9 @@ svg.ic { width: 16px; height: 16px; stroke: currentColor; fill: none;
 #header h1 { font-size: 17px; font-weight: 600; color: #fff; }
 #statusPill {
   display: flex; align-items: center; gap: 6px;
-  background: var(--surface2); border: 1px solid var(--border);
+  background: none; border: none;
   border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--dim);
 }
-#stateDot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); transition: background .2s; }
-#stateDot.starting { background: var(--warn); }
-#stateDot.running  { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
-#stateDot.error    { background: var(--err); box-shadow: 0 0 6px var(--err); }
 #stateMsg { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- pages & tabbar ---------- */
@@ -360,20 +356,22 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
 
 /* status pill as toggle switch */
 #statusPill { cursor: pointer; gap: 7px; padding: 5px 12px; }
+#stateMsg { line-height: 16px; }  /* 与开关同高：中文基线不齐的视觉修正 */
 #pillSwitch {
   position: relative; width: 30px; height: 16px; flex: none;
 }
 #pillSwitch .track {
   position: absolute; inset: 0; border-radius: 999px;
-  background: var(--surface); border: 1px solid var(--border); transition: background .15s;
+  background: var(--surface2); border: 1px solid var(--border); transition: background .15s;
 }
 #pillSwitch .knob {
-  position: absolute; top: 1px; left: 1px; width: 12px; height: 12px; border-radius: 50%;
+  position: absolute; top: 2px; left: 1px; width: 12px; height: 12px; border-radius: 50%;
   background: var(--dim); transition: transform .15s, background .15s;
 }
 #statusPill.running #pillSwitch .track { background: var(--ok); border-color: var(--ok); }
-#statusPill.running #pillSwitch .knob { transform: translateX(14px); background: #fff; }
+#statusPill.running #pillSwitch .knob { transform: translateX(16px); background: #fff; }
 #statusPill.starting #pillSwitch .track { background: var(--warn); border-color: var(--warn); }
+#statusPill.error #pillSwitch .track { background: var(--err); border-color: var(--err); }
 
 /* stepper for CLI params */
 .step-input { display: flex; align-items: stretch; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -421,7 +419,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
 
   <div id="header">
     <h1>PocketOrca-LLM</h1>
-    <div id="statusPill" onclick="pillToggle()"><span id="stateMsg"></span><div id="stateDot"></div><div id="pillSwitch"><div class="track"></div><div class="knob"></div></div></div>
+    <div id="statusPill" onclick="pillToggle()"><span id="stateMsg"></span><div id="pillSwitch"><div class="track"></div><div class="knob"></div></div></div>
   </div>
 
   <div id="pages">
@@ -479,7 +477,13 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
 
       <div class="card" id="benchCard">
         <div class="card-title"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg><span data-i18n="引擎测速">引擎测速</span><span class="dim-inline" id="benchTitleHint" data-i18n="当前模型 · NPU/GPU/CPU 依次实测">当前模型 · NPU/GPU/CPU 依次实测</span></div>
-        <div class="dim-line" data-i18n="会短暂停止当前服务并逐一切换引擎，完成自动恢复" style="margin-bottom:8px">会短暂停止当前服务并逐一切换引擎，完成自动恢复</div>
+        <div class="dim-line" data-i18n="会短暂停止当前服务并逐一切换引擎，完成自动恢复" style="margin-bottom:6px">会短暂停止当前服务并逐一切换引擎，完成自动恢复</div>
+        <div class="preset-row" id="benchPick" style="margin-top:0; margin-bottom:6px">
+          <button class="chip on" data-bench="htp">NPU</button>
+          <button class="chip on" data-bench="ocl">GPU</button>
+          <button class="chip on" data-bench="cpu">CPU</button>
+        </div>
+        <div class="dim-line" data-i18n="低内存/老机型建议只选 CPU（GPU 可能造成系统压力）" style="margin-bottom:8px">低内存/老机型建议只选 CPU（GPU 可能造成系统压力）</div>
         <button id="btnBench" onclick="benchStart()" data-i18n="开始测速">开始测速</button>
         <div id="benchStat" class="dim-line" style="display:none; margin-top:8px"></div>
         <div id="benchTable" style="display:none; margin-top:4px"></div>
@@ -531,7 +535,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
       </div>
 
       <button id="btnMain" onclick="onMainButton()" data-i18n="启动服务">启动服务</button>
-      <div id="verLine">1.4.0 fix4 · NPU + GPU 兼容修复 + 三引擎测速 · llama.cpp (MIT)</div>
+      <div id="verLine">1.4.0 fix5 · NPU + GPU 兼容修复 · 自选测速 · llama.cpp (MIT)</div>
     </div>
 
     <!-- ================= CLI PAGE ================= -->

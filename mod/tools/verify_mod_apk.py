@@ -40,7 +40,13 @@ assert b"benchRunning" in appjs and b"1.4.0 fix" in appjs, "app.js fork edits mi
 assert b"_sp.classList.toggle" in appjs, "statusPill fix missing"
 idx = z.read("assets/index.html")
 assert b"benchCard" in idx and b"bench.js" in idx, "index.html missing bench UI"
-print("bench assets: app.js(statusPill fix) + index.html + bench.js ok")
+# fix5: 自选测速 chips / 日志轮询优化 / 指示灯移除
+assert b'id="benchPick"' in idx, "index.html missing bench engine picker (fix5)"
+assert b'id="stateDot"' not in idx, "stateDot should be removed (fix5)"
+assert b'pageLogs' in appjs and b'classList.contains("active")' in appjs, \
+    "log polling visibility optimization missing (fix5)"
+assert b'benchQueue' in bench and b'npullmBenchSel' in bench, "bench.js self-select missing (fix5)"
+print("bench assets: app.js(statusPill fix) + index.html + bench.js + fix5 UI ok")
 
 # 4) 打包结构
 arsc = [i for i in z.infolist() if i.filename == "resources.arsc"]

@@ -1,9 +1,10 @@
 /* ============================================================
  * PocketOrca-LLM · 引擎测速（fork 附加功能）
- * 用"当前已选模型"依次启动 NPU / GPU / CPU 三个引擎，
+ * 用"当前已选模型"依次启动 勾选 的引擎（NPU / GPU / CPU），
  * 走与正常使用完全一致的服务路径，读取 llama-server 响应里的
  * timings 字段，得到每个引擎的 生成速度(t/s) / 提示处理速度(t/s) / 加载耗时。
  *
+ * 支持自选引擎（fix5）：测速卡片内勾选要测的引擎，选择会被记住。
  * 只依赖现有 JS 桥（startServer / stopServer / getStatus /
  * isPortBusy / httpPost），不需要改 Java 与 native。
  *
@@ -20,9 +21,73 @@ var benchIdx = 0;              // 当前引擎序号
 var benchItems = {};           // 各引擎结果 { phase, loadMs, pp, tg, reason }
 var benchT0 = 0;               // 当前引擎启动时刻
 var BENCH_ENGINES = ["htp", "ocl", "cpu"];
+var benchQueue = BENCH_ENGINES.slice();   // 本次要测的引擎（自选）
 var BENCH_LABELS = { htp: "NPU", ocl: "GPU", cpu: "CPU" };
 var BENCH_START_TIMEOUT = 240000; // 单引擎启动上限（Java 探活 120s + 余量）
 var BENCH_HTTP_TIMEOUT = 150000;  // 单次 HTTP 请求看门狗
+
+/* ---- 引擎勾选（自选测速） ---- */
+
+function benchPickBox() {
+  return document.getElementById("benchPick");
+}
+
+function benchReadPicks() {
+  var box = benchPickBox();
+  if (!box || !box.querySelectorAll) return BENCH_ENGINES.slice();
+  var chips = box.querySelectorAll(".chip.on");
+  var out = [];
+  for (var i = 0; i < chips.length; i++) {
+    var id = chips[i].getAttribute("data-bench");
+    if (id && BENCH_ENGINES.indexOf(id) >= 0) out.push(id);
+  }
+  return out;
+}
+
+function benchApplySel(picks) {
+  benchQueue = picks.slice();
+  var box = benchPickBox();
+  if (box && box.querySelectorAll) {
+    var chips = box.querySelectorAll(".chip");
+    for (var j = 0; j < chips.length; j++) {
+      var id = chips[j].getAttribute("data-bench");
+      var on = benchQueue.indexOf(id) >= 0;
+      if (chips[j].classList) {
+        if (on) chips[j].classList.add("on"); else chips[j].classList.remove("on");
+      }
+    }
+  }
+  try { localStorage.setItem("npullmBenchSel", benchQueue.join(",")); } catch (e) { }
+}
+
+function benchLoadSel() {
+  var saved = null;
+  try { saved = localStorage.getItem("npullmBenchSel"); } catch (e) { }
+  var picks = null;
+  if (saved) {
+    var arr = saved.split(",");
+    picks = [];
+    for (var i = 0; i < arr.length; i++) {
+      if (BENCH_ENGINES.indexOf(arr[i]) >= 0) picks.push(arr[i]);
+    }
+  }
+  if (!picks || !picks.length) picks = BENCH_ENGINES.slice();
+  benchApplySel(picks);
+}
+
+(function () {
+  var box = benchPickBox();
+  if (box && box.addEventListener) {
+    box.addEventListener("click", function (ev) {
+      if (benchRunning) { toastT("测速进行中，请稍候"); return; }
+      var t = ev.target;
+      if (!t || !t.classList || !t.classList.contains("chip")) return;
+      t.classList.toggle("on");
+      benchApplySel(benchReadPicks());
+    });
+  }
+  benchLoadSel();
+})();
 
 /* ---- onHttpDone 仲裁：测速期间的响应由测速逻辑消费，其余走原处理 ---- */
 (function () {
@@ -65,8 +130,8 @@ function benchRenderRows() {
   var box = benchEl("benchTable");
   if (!box) return;
   var html = "";
-  for (var i = 0; i < BENCH_ENGINES.length; i++) {
-    var eng = BENCH_ENGINES[i];
+  for (var i = 0; i < benchQueue.length; i++) {
+    var eng = benchQueue[i];
     var it = benchItems[eng] || { phase: "wait" };
     html += '<div class="brow"><span class="beng">' + BENCH_LABELS[eng] + '</span><span class="bstat">';
     if (it.phase === "wait") html += T("等待中");
@@ -123,6 +188,16 @@ function benchStart() {
   if (!model || !model.path) { toastT("先选择模型文件"); return; }
   if (0 === String(model.path).indexOf("__bmoe__")) { toastT("BigMoE 模型不支持测速"); return; }
 
+  // 自选引擎：有勾选 UI 时用勾选值（空 = 提示），无 UI（测试环境）默认全选
+  var box = benchPickBox();
+  if (box && box.querySelectorAll) {
+    var picks = benchReadPicks();
+    if (!picks.length) { toastT("未选择任何引擎，请至少勾选一个"); return; }
+    benchApplySel(picks);
+  } else {
+    benchQueue = BENCH_ENGINES.slice();
+  }
+
   benchSaved = {
     wasRunning: false,
     profileId: profileId,
@@ -168,8 +243,8 @@ function benchWaitFree(tries, cb) {
 
 function benchNext() {
   if (!benchRunning) return;
-  if (benchIdx >= BENCH_ENGINES.length) { benchFinish(); return; }
-  var eng = BENCH_ENGINES[benchIdx];
+  if (benchIdx >= benchQueue.length) { benchFinish(); return; }
+  var eng = benchQueue[benchIdx];
   benchPut(eng, { phase: "starting" });
   benchSetUi(BENCH_LABELS[eng] + " " + T("启动中") + "…");
   benchT0 = Date.now();
@@ -188,7 +263,7 @@ function benchNext() {
 
 function benchPollReady(elapsed) {
   if (!benchRunning) return;
-  var eng = BENCH_ENGINES[benchIdx];
+  var eng = benchQueue[benchIdx];
   if (elapsed > BENCH_START_TIMEOUT) { benchFail(eng, T("启动超时")); return; }
   var st = benchReadStatus();
   if (st && st.running) { benchWarm(eng, Date.now() - benchT0); return; }
@@ -263,9 +338,9 @@ function benchAdvance() {
 function benchFinish() {
   benchRunning = false;
   var best = null, bestTg = 0;
-  for (var i = 0; i < BENCH_ENGINES.length; i++) {
-    var it = benchItems[BENCH_ENGINES[i]];
-    if (it && it.phase === "done" && it.tg > bestTg) { bestTg = it.tg; best = BENCH_ENGINES[i]; }
+  for (var i = 0; i < benchQueue.length; i++) {
+    var it = benchItems[benchQueue[i]];
+    if (it && it.phase === "done" && it.tg > bestTg) { bestTg = it.tg; best = benchQueue[i]; }
   }
   var msg = T("测速完成");
   if (best) msg += " · " + T("最快") + ": " + BENCH_LABELS[best] + " " + bestTg.toFixed(1) + " t/s";

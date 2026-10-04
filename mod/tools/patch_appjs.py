@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""对 v1.4.0 官方 app.js（beautified 版）应用全部 fork 修改 → 生成当前版本。
+"""对 v1.4.0 官方 app.js（beautified 版）应用全部 fork 修改 → 生成当前版本（fix5）。
 
-用途：留档/复现全部修改（8 处），并可用于一致性校验：
+留档/复现全部 10 处修改，并可做一致性校验：
     python3 patch_appjs.py <原始_beautified.js> <输出.js>
     diff 输出.js mod/assets/app.js   # 应完全一致
 """
@@ -43,7 +43,9 @@ TW_ADD = '''      "引擎测速": "引擎測速",
       "全部失败": "全部失敗",
       "已取消": "已取消",
       "加载": "載入",
-      " · 已恢复原引擎": " · 已恢復原引擎",'''
+      " · 已恢复原引擎": " · 已恢復原引擎",
+      "低内存/老机型建议只选 CPU（GPU 可能造成系统压力）": "低記憶體/舊機型建議只選 CPU（GPU 可能造成系統壓力）",
+      "未选择任何引擎，请至少勾选一个": "未選擇任何引擎，請至少勾選一個",'''
 
 EN_ADD = '''      "引擎测速": "Engine speed test",
       "当前模型 · NPU/GPU/CPU 依次实测": "Current model · NPU / GPU / CPU measured in turn",
@@ -66,9 +68,11 @@ EN_ADD = '''      "引擎测速": "Engine speed test",
       "全部失败": "all engines failed",
       "已取消": "Cancelled",
       "加载": "load",
-      " · 已恢复原引擎": " · previous engine restored",'''
+      " · 已恢复原引擎": " · previous engine restored",
+      "低内存/老机型建议只选 CPU（GPU 可能造成系统压力）": "On low-memory / older devices prefer CPU (GPU may stress the system)",
+      "未选择任何引擎，请至少勾选一个": "No engine selected — pick at least one",'''
 
-# 1-2. i18n 词条（zh-TW / en）
+# 1-2. i18n 词条（zh-TW / en，含 fix5 两条）
 rep('''      "关闭": "關閉",
       "KV 卸载（省内存/速度权衡）": "KV 卸載（省記憶體/速度權衡）",''',
     '''      "关闭": "關閉",
@@ -83,7 +87,7 @@ rep('''      "关闭": "Off",
 
 # 3. 版本号
 rep('  APP_VER = "1.4.0";',
-    '  APP_VER = "1.4.0 fix4";', 'APP_VER')
+    '  APP_VER = "1.4.0 fix5";', 'APP_VER')
 
 # 4. benchRunning 声明（fix1）
 rep('var lastSnap = "";',
@@ -112,13 +116,20 @@ rep('''function setProfile(e, t) {
   if (benchRunning) return;
   if (_bmoeOn || "bmoe" !== e) {''', 'guard-profile')
 
-# 8. setState 同步 statusPill 样式类（fix3 — 修复开关滑块不动）
+# 8. setState：同步 statusPill 样式类（fix3）+ 移除指示灯引用 / 补 error 态（fix5）
 rep('''function setState(e, t) {
   state = e, $("stateDot").className = "ready" === e ? "" : e, $("stateMsg").textContent = t || "";''',
     '''function setState(e, t) {
-  state = e, $("stateDot").className = "ready" === e ? "" : e, $("stateMsg").textContent = t || "";
+  state = e, $("stateMsg").textContent = t || "";
   var _sp = $("statusPill");
-  _sp && (_sp.classList.toggle("running", "running" === e), _sp.classList.toggle("starting", "starting" === e));''', 'setState-statusPill')
+  _sp && (_sp.classList.toggle("running", "running" === e), _sp.classList.toggle("starting", "starting" === e), _sp.classList.toggle("error", "error" === e));''', 'setState-statusPill')
+
+# 9. 日志轮询仅在日志页可见时进行（fix5）
+rep('''setInterval(function() {
+  if ("ready" !== state || 0 !== $("log").textContent.length) {''',
+    '''setInterval(function() {
+  if (!$("pageLogs").classList.contains("active")) return;
+  if ("ready" !== state || 0 !== $("log").textContent.length) {''', 'logpoll-visible')
 
 io.open(DST, 'w', encoding='utf-8').write(s)
 print('---- all %d edits applied -> %s (%d bytes) ----' % (changes, DST, len(s.encode('utf-8'))))

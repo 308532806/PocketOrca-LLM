@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /* bench.js 状态机冒烟测试（stub DOM + stub bridge，不依赖 Android）
  * 用法: node mod/tools/test_bench_smoke.js
- * 覆盖：三引擎完整流程（启动→预热→测量→恢复）+ 中途取消。
+ * 覆盖：完整流程（三引擎）、中途取消、引擎失败降级、自选单引擎。
  */
 const fs = require('fs');
 const path = require('path');
@@ -9,8 +9,22 @@ const vm = require('vm');
 
 const code = fs.readFileSync(path.join(__dirname, '../assets/bench.js'), 'utf8');
 
+// 当前"勾选"的引擎（供 benchPick stub 返回）
+let currentPicks = ['htp', 'ocl', 'cpu'];
+
 const els = {};
 function el(id) {
+  if (id === 'benchPick') {
+    return {
+      querySelectorAll(sel) {
+        const list = sel.includes('on') ? currentPicks : ['htp', 'ocl', 'cpu'];
+        return list.map((p) => ({
+          getAttribute: () => p,
+          classList: { add() {}, remove() {}, toggle() {} },
+        }));
+      },
+    };
+  }
   if (!els[id]) {
     const item = {
       id, textContent: '', innerHTML: '', value: '', checked: id === 'reasoning',
@@ -99,7 +113,7 @@ function check(cond, msg) {
 let scenariosDone = 0;
 function scenarioFinished() {
   scenariosDone++;
-  if (scenariosDone === 3) {
+  if (scenariosDone === 4) {
     console.log(failures ? '\nSMOKE TEST: ' + failures + ' FAILURE(S)' : '\nSMOKE TEST: ALL OK');
     process.exit(failures ? 1 : 0);
   }
@@ -145,5 +159,18 @@ runScenario('fail', false, (env) => { env._failEngine = 'ocl'; }, (env) => {
   check(JSON.stringify(starts) === JSON.stringify(['htp', 'ocl', 'cpu']),
     'no restore start when idle, starts=' + JSON.stringify(starts));
   check(env.els.benchStat.textContent.includes('最快'), 'finish msg: ' + env.els.benchStat.textContent);
+  scenarioFinished();
+});
+
+/* ---------- 场景 4：自选单引擎（只勾选 CPU，初始未运行） ---------- */
+console.log('scenario 4: single engine (CPU only, was idle)');
+currentPicks = ['cpu'];
+runScenario('cpuonly', false, null, (env) => {
+  check(env.benchItems.cpu && env.benchItems.cpu.phase === 'done', 'cpu done');
+  check(!env.benchItems.htp && !env.benchItems.ocl, 'htp/ocl not tested');
+  const starts = env.calls.filter((c) => c[0] === 'start').map((c) => c[1]);
+  check(JSON.stringify(starts) === JSON.stringify(['cpu']), 'only cpu started: ' + JSON.stringify(starts));
+  check(env.els.benchStat.textContent.includes('最快') &&
+    env.els.benchStat.textContent.includes('CPU'), 'best is CPU: ' + env.els.benchStat.textContent);
   scenarioFinished();
 });

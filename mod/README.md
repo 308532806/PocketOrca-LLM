@@ -1,63 +1,92 @@
-# mod/ — PocketOrca-LLM v1.4.0 修复包（v1.4.0-fix4）
+# mod/ — PocketOrca-LLM v1.4.0 修复包（v1.4.0-fix5）
 
-本目录是 **308532806/PocketOrca-LLM fork** 的修改层：基于官方 v1.4.0 **发布 APK** 做"手术式"修补，不重新编译 dex/native。
+PocketOrca-LLM 上游 v1.4.0 在 NPU/GPU 启动环节存在兼容性问题（issue #1 之类），本目录是对其官方 APK 的"手术式"修复层 —— 仅修改 4 类条目、其余与官方 v1.4.0 逐字节一致。fix5 = fix4 全部内容 + 自选测速 + 状态胶囊 UI 精简 + 日志轮询性能优化。
 
-修复包内容（fix4 = fix3 + GPU 运行期兼容修复）：
+> 上游：https://github.com/PocketOrca/PocketOrca-LLM  ·  本 fork：https://github.com/308532806/PocketOrca-LLM
 
-| # | 修复 | 目标 | 说明 |
+---
+
+## 修改内容（fix1 → fix5 累积）
+
+| # | 类别 | 文件 | 说明 |
 |---|---|---|---|
-| 1 | NPU(HTP) 启动崩溃（[issue #1](https://github.com/PocketOrca/PocketOrca-LLM/issues/1)） | `libggml-hexagon.so` | 2 处 `strb w8→wzr` 强制关闭 `opt_dma64`（DMA64 映射与内置旧 `libcdsprpc.so` 不兼容 → `fastrpc_mmap` 0xe → exit 134） |
-| 2 | GPU 加载失败：`clCreateBufferWithProperties`（CL 3.0） | `libggml-opencl.so` | 旧驱动不导出该符号 + `BIND_NOW` 加载期强依赖。dynstr 改名 + 调用点 `nop`（默认关闭的 X2 实验路径） |
-| 3 | GPU 加载失败：`clGetKernelSubGroupInfo`（CL 2.1） | `libggml-opencl.so` | 两调用点返回"查询失败"（既有降级）+ dynstr 占位改名 |
-| 4 | GPU 运行期闪退：`flash_attn_repack` kernel 编译失败 → `exit(1)` | `libggml-opencl.so` | 旧驱动缺 `cl_khr_3d_image_writes`；`fatal` 参数 `1→0` + 4 处 CL_CHECK 失败跳转 `cbnz→nop`（句柄保持 NULL；wmm prefill 路径不可达——bin 内核库不随包分发） |
-| 5 | 状态胶囊开关滑块不动（上游 bug） | `assets/app.js` | `setState` 未同步 `#statusPill` 样式类；已补 |
-| 6 | 三引擎测速（新增功能） | `assets/bench.js` + UI | 用当前模型依次实测 NPU/GPU/CPU 并展示 t/s 与加载耗时 |
+| 1 | NPU(HTP) 启动崩溃 | `lib/arm64-v8a/libggml-hexagon.so`（2 字节补丁） | 关闭 `opt_dma64`，避免新 DMA64 映射与旧 `libcdsprpc.so` 不兼容（exit 134） |
+| 2 | GPU(OpenCL) 旧驱动兼容 | `lib/arm64-v8a/libggml-opencl.so`（10 字节补丁） | 去掉 CL 3.0 / CL 2.1 强符号依赖；wmm-repack kernel 编译失败由 fatal 降级为忽略（该 kernel 组永不被使用） |
+| 3 | 自选测速 | `assets/bench.js` + UI（fix5） | 三引擎测速改为按勾选顺序依次实测；选择用 localStorage 记忆；不勾任何引擎时给提示 |
+| 4 | 状态胶囊 UI 精简 | `assets/index.html` + `assets/app.js`（fix5） | 移除冗余指示灯 / 外框 / 底色；文字与开关垂直基线对齐；滑块行程对称；错误态用红色 |
+| 5 | 日志轮询性能优化 | `assets/app.js`（fix5） | 500ms 轮询改为仅日志页可见时运行；其它页面零开销 |
+| 6 | i18n + 版本号 | `assets/index.html` + `assets/app.js` | 新增 4 条中文词条；verLine 改为 `1.4.0 fix5 · 自选测速` |
+| — | 其余全部 | classes.dex / manifest / 其它 35 个原生库 / 其它资源 | 与官方 v1.4.0 逐字节一致 |
 
-## 真机验证（发布前）
+> 修复后 libggml-hexagon.so SHA-256 = `277130…a7596`（与 issue 报告一致，证明等价）；修复后 libggml-opencl.so SHA-256 = `ac6bb2091f331ad024cbbf3a587a7982a686389ee44916d31d93ff21444adb76`（独立进程 GPU 实测可用）。
 
-在 **OPPO PDPM00（SM7250 骁龙 765G / Adreno 620 / Android 12）** 上完成：
+---
 
-- 独立进程（修复库 + 真实 OpenCL 驱动）：`-fa on` / `-fa off` 均完整启动到 `llama_server: model loaded / listening`，`/completion` 推理返回正常；
-- App 内（JNI + sphal 路径）：安装后实测 GPU 引擎与三引擎测速（见 Release 说明）。
+## 目录结构
 
-## 为什么是"APK 手术"而不是源码重建？
-
-上游仓库的公开源码滞后于发布版（v1.3.8 / v1.4.0 的提交只同步了文档，`app/src` 仍停留在 v1.3.5，且 v1.4.0 实际 APK 含公开源码里没有的 BigMoE 等模块）。因此直接重建源码会**回退**功能。本修改层改为：以官方 v1.4.0 APK 为字节级基线，只替换/追加必要的文件，并用脚本对关键字节做校验，保证其余内容与官方逐字节一致。
-
-## 内容
-
-| 路径 | 说明 |
-|---|---|
-| `assets/app.js` | 由 v1.4.0 APK 内 assets/app.js 恢复为可读格式 + 8 处修改（i18n、版本号、测速 guard、状态胶囊修复） |
-| `assets/index.html` | 同上来源；新增「引擎测速」卡片与样式、加载 bench.js |
-| `assets/bench.js` | **新增**：三引擎（NPU/GPU/CPU）测速实现，只用现有 JS 桥 |
-| `tools/build_mod.py` | 官方 APK → 打 .so 补丁（hexagon 2 处 + opencl 10 处）+ 替换/追加 assets → 未签名 APK（含双 .so sha256 断言、锚点断言、回读校验；opencl 产物 sha256 与真机验证版一致） |
-| `tools/verify_mod_apk.py` | 对最终 APK 的校验（12 处补丁字节 / 资产标记 / 打包结构 / sha256） |
-| `tools/patch_appjs.py` | app.js 全部 8 处修改的留档脚本（从原始 beautified 版可一键重现） |
-| `tools/test_bench_smoke.js` | bench.js 状态机冒烟测试（stub DOM/bridge，`node tools/test_bench_smoke.js`） |
-| `release-notes/` | 各版本发布说明（随 Release 发布） |
-
-## 构建
-
-```bash
-# 1. 准备官方 v1.4.0 APK（sha256: 14885aadb8d38aee9fc3ebc9fc393f148788901a2d63cdc082ff8ac5008e5478）
-curl -L -o official.apk https://github.com/PocketOrca/PocketOrca-LLM/releases/download/v1.4.0/PocketOrca-LLM-v1.4.0-release.apk
-
-# 2. 打补丁并重打包（需要 python3，仅标准库）
-python3 mod/tools/build_mod.py official.apk mod out/unsigned.apk
-
-# 3. 对齐 + 签名（需 Android build-tools 与 JDK）
-zipalign -f 4 out/unsigned.apk out/aligned.apk
-apksigner sign --ks your.keystore --out PocketOrca-LLM-v1.4.0-fix4.apk out/aligned.apk
-
-# 4. 校验
-python3 mod/tools/verify_mod_apk.py PocketOrca-LLM-v1.4.0-fix4.apk
+```
+mod/
+├── assets/
+│   ├── app.js              ← patch_appjs.py 输出
+│   ├── index.html          ← 手改 UI（含 fix5 胶囊/勾选 chips）
+│   └── bench.js            ← 自选测速脚本（新增）
+├── tools/
+│   ├── build_mod.py        ← APK 手术主脚本（zipfile 级，无 dex 重编译）
+│   ├── patch_appjs.py      ← app.js 修改记录（可重放）
+│   ├── verify_mod_apk.py   ← CI 校验（修复锚点 + 哈希 + 资源完整性）
+│   └── test_bench_smoke.js ← Node 冒烟测试（4 场景）
+├── release-notes/
+│   └── v1.4.0-fix5.md      ← 当前版本发布说明
+├── mod/build.sh            ← CI 入口脚本
+└── .github/workflows/
+    └── mod-build.yml       ← CI：下载官方 APK → 手术 → 重签名 → 发 Release
 ```
 
-CI 上由 [`.github/workflows/mod-build.yml`](../.github/workflows/mod-build.yml) 自动构建：push 只生成 artifact；确认无误后手动 `workflow_dispatch`（`publish=true`）发布 Release。
+---
 
-## 修复依据
+## 本地构建
 
-- [issue #1](https://github.com/PocketOrca/PocketOrca-LLM/issues/1)：NPU 启动崩溃（`fastrpc_mmap failed` / exit 134）的定位与二进制补丁方案（qwerkilo 报告）；
-- llama.cpp PR #29197：DMA64 扩展映射改动（v1.4.0 基线 `58367713a` 引入）；
-- llama.cpp `ggml/src/ggml-opencl/ggml-opencl.cpp`（同基线）：CL3/CL2.1 符号与 `flash_attn_repack` 构建（`fatal=true`）——对旧驱动均为兼容盲区，在 App JNI 进程内运行时表现为"dlopen 失败 / 整体闪退"。
+依赖 Python 3.10+ 与 Node 18+。SDK / build-tools / apksigner 由 CI 提供，本地不强求。
+
+```bash
+# 1. 准备
+ln -s /path/to/PocketOrca-LLM-v1.4.0.apk up.apk       # 官方原版
+
+# 2. 构建
+python3 mod/tools/build_mod.py up.apk mod out.apk
+python3 mod/tools/verify_mod_apk.py out.apk            # 断言全过
+
+# 3. 测速脚本冒烟
+node mod/tools/test_bench_smoke.js                     # 4 场景全绿
+
+# 4. 签名 + 校验（需要 build-tools）
+zipalign -f -p 4 out.apk aligned.apk
+apksigner sign --ks keystore.jks --ks-key-alias porca aligned.apk
+apksigner verify --print-certs aligned.apk
+```
+
+---
+
+## 关于"防休眠"
+
+应用**已内置**防休眠机制（ServerService.java）：
+
+- 前台服务 + `PARTIAL_WAKE_LOCK`
+- `WifiManager.WIFI_MODE_FULL_HIGH_PERF`
+- 首次启动引导申请电池优化豁免
+
+fix5 **未新增** 防休眠代码 —— 因为不需要。若仍遇息屏断连，请确认系统设置里本应用为"不受限"。
+
+---
+
+## 已知限制
+
+- 骁龙 765G / 8GB RAM 等"小内存/老 Adreno"设备：**禁止在 App 内跑 GPU 完整测速**（实测曾触发系统保护性重启）。独立进程测试可用。建议在 UI 上只勾 CPU。
+- 部分机型无可用 NPU（7 系旧平台），NPU 测速必然失败，属正常。
+
+---
+
+## 与上游 / 其它 fork 的关系
+
+- 改动仅在 fork 上提交，**永远不向 upstream 提 PR**（涉及签名密钥、CI 上传、用户资产，本就是社区侧的分发，不应回流）。
+- 不改 dex、不改推理逻辑 —— 仅做"足以让 v1.4.0 在更多设备跑起来"的最小修复 + 用户体验改进。
