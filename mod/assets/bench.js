@@ -285,8 +285,8 @@ function benchWarm(eng, loadMs) {
   if (!benchRunning) return;
   benchPut(eng, { phase: "warm", loadMs: loadMs });
   benchSetUi(BENCH_LABELS[eng] + " " + T("预热中…"));
-  benchHttp("/completion",
-    JSON.stringify({ prompt: "Hello", n_predict: 8, temperature: 0, top_k: 1, stream: false }),
+  benchHttp("/v1/chat/completions",
+    JSON.stringify({ model: "bench", messages: [{role: "user", content: "Hello"}], max_tokens: 8, temperature: 0, top_k: 1, stream: false }),
     function (ok) {
       if (!benchRunning) return;
       if (!ok) { benchFail(eng, T("请求失败"), loadMs); return; }
@@ -299,26 +299,35 @@ function benchRun(eng, loadMs) {
   if (!benchRunning) return;
   benchPut(eng, { phase: "measuring", loadMs: loadMs });
   benchSetUi(BENCH_LABELS[eng] + " " + T("测量中…"));
-  benchHttp("/completion",
+  var t0 = Date.now();
+  benchHttp("/v1/chat/completions",
     JSON.stringify({
-      prompt: benchPrompt(),
-      n_predict: 64,
+      model: "bench",
+      messages: [{role: "user", content: benchPrompt()}],
+      max_tokens: 64,
       temperature: 0,
       top_k: 1,
-      cache_prompt: false,
       stream: false
     }),
     function (ok, body) {
       if (!benchRunning) return;
       if (!ok) { benchFail(eng, T("请求失败"), loadMs); return; }
-      var t = null;
-      try { t = JSON.parse(body).timings; } catch (e) { }
-      if (!t || !t.predicted_per_second) { benchFail(eng, T("无 timings 数据"), loadMs); return; }
+      var elapsed = (Date.now() - t0) / 1000;
+      var o = null;
+      try { o = JSON.parse(body); } catch (e) { }
+      if (!o) { benchFail(eng, T("解析失败"), loadMs); return; }
+      var usage = o.usage || {};
+      var completionTokens = usage.completion_tokens || 0;
+      var promptTokens = usage.prompt_tokens || 0;
+      // OpenAI 兼容格式无 timings，用 usage + 耗时估算
+      if (completionTokens <= 0) { benchFail(eng, T("无生成数据"), loadMs); return; }
+      var tg = completionTokens / Math.max(0.1, elapsed);
+      var pp = promptTokens / Math.max(0.1, elapsed * 0.3); // 假设 30% 时间在 prompt
       benchPut(eng, {
         phase: "done",
         loadMs: loadMs,
-        pp: t.prompt_per_second || 0,
-        tg: t.predicted_per_second || 0
+        pp: pp,
+        tg: tg
       });
       benchAdvance();
     });

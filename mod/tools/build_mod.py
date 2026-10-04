@@ -75,7 +75,7 @@ FIX4_PATCH_SET = [
 ]
 EXPECT_FIXED_OPENCL_SHA256 = "ac6bb2091f331ad024cbbf3a587a7982a686389ee44916d31d93ff21444adb76"
 
-REPLACE_ASSETS = ["assets/app.js", "assets/index.html", "assets/bench.js"]
+REPLACE_ASSETS = ["assets/app.js", "assets/index.html", "assets/bench.js", "assets/recommend.js"]
 
 
 def sha256_file(p):

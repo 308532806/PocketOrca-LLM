@@ -1035,7 +1035,7 @@ function applyI18nDom() {
   }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-  APP_VER = "1.4.0 fix5";
+  APP_VER = "1.4.0 fix6";
 
 function applyTheme(e) {
   var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1095,6 +1095,8 @@ function welcomeInit() {
   try {
     e = JSON.parse(bridge("welcomeInfo") || "null")
   } catch (e) {}
+  // fix6: 缓存设备信息给 recommend.js（只存一次，无副作用）
+  try { if (e) localStorage.setItem("npullmWelcome", JSON.stringify({ soc: e.soc || "", ramGB: e.ramGB || 0, cores: e.cores || 0, model: e.model || "" })); } catch (e2) {}
   e && e.shown || ($("wModel").textContent = e && e.model ? e.model : T("未知"), $("wSoc").textContent = e && e.soc ? T(e.soc) : T("未知"), $("wCores").textContent = e && e.cores ? e.cores + T(" 核") : T("未知"), $("wRam").textContent = e && e.ramGB ? e.ramGB + " GB" : T("未知"), applyI18nDom(), $("welcome").style.display = "flex")
 }
 

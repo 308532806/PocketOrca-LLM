@@ -231,6 +231,14 @@ textarea#cliPrompt {
   border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer;
 }
 .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+/* fix6: 推荐参数卡片 */
+#recCard .rec-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
+#recCard .rec-row span { color: var(--dim); }
+#recCard .rec-row b { color: var(--text); font-weight: 600; }
+#recCard .rec-dev { font-size: 12px; color: var(--faint); margin-bottom: 6px; }
+#recCard .rec-note { font-size: 12px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+#recCard .rec-actions { display: flex; gap: 8px; margin-top: 10px; }
+#recCard .rec-actions button { flex: 1; }
 input[type="range"] { flex: 1; max-width: 46%; accent-color: var(--primary); height: 26px; }
 #btnSend {
   width: 100%; border: none; border-radius: var(--r-btn);
@@ -489,6 +497,14 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
         <div id="benchTable" style="display:none; margin-top:4px"></div>
       </div>
 
+      <div class="card" id="recCard">
+        <div class="card-title"><svg class="ic" viewBox="0 0 24 24"><path d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4-6.2-4.6-6.2 4.6 2.4-7.4L2 9.4h7.6z"/></svg><span data-i18n="推荐参数">推荐参数</span><span class="dim-inline" id="recHead"></span></div>
+        <div id="recBody"></div>
+        <div class="rec-actions">
+          <button onclick="applyRecommend()" data-i18n="一键应用">一键应用</button>
+        </div>
+      </div>
+
       <div class="card" id="paramsCard">
         <div class="card-title" id="paramsHead" onclick="toggleParams()"><svg class="ic" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg><span data-i18n="参数">参数</span><span class="chev" id="paramsChev">▸</span></div>
         <div id="params" class="drawer" style="display:none">
@@ -535,7 +551,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
       </div>
 
       <button id="btnMain" onclick="onMainButton()" data-i18n="启动服务">启动服务</button>
-      <div id="verLine">1.4.0 fix5 · NPU + GPU 兼容修复 · 自选测速 · llama.cpp (MIT)</div>
+      <div id="verLine">1.4.0 fix6 · NPU + GPU 兼容修复 · 自选测速 · 推荐参数 · llama.cpp (MIT)</div>
     </div>
 
     <!-- ================= CLI PAGE ================= -->
@@ -751,5 +767,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
 
 <script src="app.js"></script>
 <script src="bench.js"></script>
+<script src="recommend.js"></script>
+<script>renderRecommend && renderRecommend();</script>
 </body>
 </html>

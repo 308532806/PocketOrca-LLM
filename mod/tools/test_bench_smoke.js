@@ -75,8 +75,10 @@ function makeEnv(initialRunning) {
       if (name === 'httpPost') {
         calls.push(['post', args[1].includes('"n_predict":64') ? 'measure' : 'warm']);
         setTimeout(() => {
+          // OpenAI 兼容格式：usage + 无 timings（与真机一致）
           env.onHttpDone('200', JSON.stringify({
-            timings: { prompt_n: 250, prompt_per_second: 50.5, predicted_n: 64, predicted_per_second: 20.2 },
+            choices: [{message: {role: 'assistant', content: 'Paris.'}}],
+            usage: { prompt_tokens: 250, completion_tokens: 64, total_tokens: 314 }
           }));
         }, 20);
         return undefined;
@@ -125,8 +127,10 @@ runScenario('full', true, null, (env) => {
   check(env.benchItems.htp && env.benchItems.htp.phase === 'done', 'htp done');
   check(env.benchItems.ocl && env.benchItems.ocl.phase === 'done', 'ocl done');
   check(env.benchItems.cpu && env.benchItems.cpu.phase === 'done', 'cpu done');
-  check(Math.abs(env.benchItems.cpu.tg - 20.2) < 1e-6, 'tg value parsed (20.2)');
-  check(env.benchItems.cpu.pp === 50.5, 'pp value parsed (50.5)');
+  // OpenAI 格式估算：tg = 64/elapsed，pp = 250/(elapsed*0.3)，elapsed 由 setTimeout 20ms 决定 ≈ 0.02-0.1s
+  // 只断言 tg > 0 且 pp > 0，具体值依赖时序
+  check(env.benchItems.cpu.tg > 0, 'tg value positive');
+  check(env.benchItems.cpu.pp > 0, 'pp value positive');
   const starts = env.calls.filter((c) => c[0] === 'start').map((c) => c[1]);
   check(JSON.stringify(starts) === JSON.stringify(['htp', 'ocl', 'cpu', 'htp']),
     'start order + restore, got ' + JSON.stringify(starts));

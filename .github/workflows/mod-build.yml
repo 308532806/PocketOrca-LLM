@@ -20,8 +20,8 @@ permissions:
   contents: write
 
 env:
-  MOD_TAG: v1.4.0-fix4
-  APK_NAME: PocketOrca-LLM-v1.4.0-fix4.apk
+  MOD_TAG: v1.4.0-fix6
+  APK_NAME: PocketOrca-LLM-v1.4.0-fix6.apk
 
 jobs:
   build:
@@ -101,7 +101,7 @@ jobs:
         run: |
           SHA=$(sha256sum "out/$APK_NAME" | awk '{print $1}')
           SIZE=$(stat -c%s "out/$APK_NAME")
-          cp mod/release-notes/v1.4.0-fix5.md /tmp/notes.md
+          cp mod/release-notes/v1.4.0-fix6.md /tmp/notes.md
           {
             echo ""
             echo "---"
@@ -125,7 +125,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.MOD_TAG }}
-          name: "PocketOrca-LLM v1.4.0 fix5（自选测速 + UI 精简 + NPU/GPU 兼容修复）"
+          name: "PocketOrca-LLM v1.4.0 fix6（测速修复 + 推荐参数 + NPU/GPU 兼容修复）"
           body_path: /tmp/notes.md
           files: out/${{ env.APK_NAME }}
           fail_on_unmatched_files: true
