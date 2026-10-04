@@ -1,0 +1,123 @@
+name: Build mod APK (NPU fix + benchmark)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'mod/**'
+      - '.github/workflows/mod-fix1.yml'
+
+permissions:
+  contents: write
+
+env:
+  MOD_TAG: v1.4.0-fix1
+  APK_NAME: PocketOrca-LLM-v1.4.0-fix1.apk
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Locate Android build-tools
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          echo "SDK=$SDK"
+          ls "$SDK/build-tools"
+          BT=$(ls -d "$SDK"/build-tools/*/ | sort -V | tail -1)
+          BT="${BT%/}"
+          echo "Using build-tools: $BT"
+          echo "BT=$BT" >> "$GITHUB_ENV"
+
+      - name: Download official v1.4.0 APK (sha256 pinned)
+        run: |
+          curl -sSL --retry 3 -o official.apk \
+            "https://github.com/PocketOrca/PocketOrca-LLM/releases/download/v1.4.0/PocketOrca-LLM-v1.4.0-release.apk"
+          echo "14885aadb8d38aee9fc3ebc9fc393f148788901a2d63cdc082ff8ac5008e5478  official.apk" | sha256sum -c -
+
+      - name: Repack with mods (NPU DMA64 patch + benchmark assets)
+        run: |
+          mkdir -p out
+          python3 mod/tools/build_mod.py official.apk mod out/unsigned.apk
+
+      - name: zipalign
+        run: |
+          "$BT/zipalign" -f 4 out/unsigned.apk out/aligned.apk
+          "$BT/zipalign" -c 4 out/aligned.apk && echo "zipalign check ok"
+
+      - name: Prepare keystore from secret
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: |
+          set -e
+          echo "$KEYSTORE_BASE64" | base64 -d > /tmp/ks.p12
+          keytool -importkeystore -srckeystore /tmp/ks.p12 -srcstoretype PKCS12 \
+            -srcstorepass "$KEYSTORE_PASS" \
+            -destkeystore /tmp/ks.jks -deststoretype JKS \
+            -deststorepass "$KEYSTORE_PASS" -noprompt
+          keytool -list -keystore /tmp/ks.jks -storepass "$KEYSTORE_PASS"
+          ALIAS=$(keytool -list -keystore /tmp/ks.jks -storepass "$KEYSTORE_PASS" \
+            | awk -F, '/PrivateKeyEntry/ {print $1}' | head -1 | sed 's/[[:space:]]*$//')
+          echo "Key alias: [$ALIAS]"
+          test -n "$ALIAS"
+          echo "KEY_ALIAS=$ALIAS" >> "$GITHUB_ENV"
+
+      - name: Sign APK
+        env:
+          KEYSTORE_PASS: ${{ secrets.KEYSTORE_PASS }}
+        run: |
+          set -e
+          "$BT/apksigner" sign --ks /tmp/ks.jks \
+            --ks-pass "pass:$KEYSTORE_PASS" --key-pass "pass:$KEYSTORE_PASS" \
+            --ks-key-alias "$KEY_ALIAS" \
+            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+            --out "out/$APK_NAME" out/aligned.apk
+          ls -la out/
+
+      - name: Verify signed APK
+        run: |
+          "$BT/apksigner" verify --verbose --print-certs "out/$APK_NAME"
+          python3 mod/tools/verify_mod_apk.py "out/$APK_NAME"
+
+      - name: Append checksums to release notes
+        run: |
+          SHA=$(sha256sum "out/$APK_NAME" | awk '{print $1}')
+          SIZE=$(stat -c%s "out/$APK_NAME")
+          cp mod/release-notes/v1.4.0-fix1.md /tmp/notes.md
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "- **APK SHA-256**: \`$SHA\`"
+            echo "- **APK 大小**: ${SIZE} bytes"
+            echo "- **签名证书 SHA-256 指纹**: \`78:BC:E3:D1:D5:1D:F3:12:F2:A2:CC:41:30:62:D5:1D:9B:79:F1:C6:00:A8:D5:B3:FA:AA:B8:09:55:78:35:EC\`（自签名；与官方版本不同，安装前需卸载官方版）"
+            echo "- **构建**: GitHub Actions run ID \`$GITHUB_RUN_ID\`"
+            echo "- **说明**: 本 APK 除列出的修改外，与官方 v1.4.0 逐字节一致；未改动 classes.dex。"
+          } >> /tmp/notes.md
+          cat /tmp/notes.md
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.APK_NAME }}
+          path: out/${{ env.APK_NAME }}
+
+      - name: Create / update release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.MOD_TAG }}
+          name: "PocketOrca-LLM v1.4.0 fix1（NPU 启动修复 + 三引擎测速）"
+          body_path: /tmp/notes.md
+          files: out/${{ env.APK_NAME }}
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false

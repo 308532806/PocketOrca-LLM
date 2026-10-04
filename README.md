@@ -16,6 +16,11 @@ Free forever · No ads · No in-app purchases
 
 ---
 
+> [!NOTE]
+> **Community fix fork**: fixes the NPU (HTP) engine startup crash ([issue #1](https://github.com/PocketOrca/PocketOrca-LLM/issues/1)) and adds an NPU / GPU / CPU speed test, on top of the official v1.4.0. How it is built: [mod/README.md](mod/README.md). Ready-to-install APK: [Releases](../../releases/latest).
+
+---
+
 > [!IMPORTANT]
 > Plug your phone in while running and keep it cool.<br>
 > This app ships **no model files** — download a GGUF model yourself after installing (see [User Guide §2](docs/USER-GUIDE.md#2-download-models)).<br>
