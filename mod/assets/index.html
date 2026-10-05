@@ -235,6 +235,15 @@ textarea#cliPrompt {
   border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer;
 }
 .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+/* fix8: 测速主按钮与全局风格统一 */
+#btnBench {
+  width: 100%; border: none; border-radius: var(--r-btn);
+  padding: 11px; font-size: 14px; font-weight: 600; cursor: pointer;
+  background: var(--primary); color: #fff;
+  transition: background .15s, opacity .15s;
+}
+#btnBench:active { background: var(--primary-hi); }
+#btnBench.busy { background: #7f1d1d; color: #fecaca; }   /* 测速中=停止，红色与主按钮停止态一致 */
 /* fix7: 推荐参数卡片 */
 #recCard .rec-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
 #recCard .rec-row span { color: var(--dim); }
