@@ -9,25 +9,25 @@ names = set(z.namelist())
 
 # 1) NPU DMA64 补丁（libggml-hexagon.so 两处 strb wzr）
 so = z.read("lib/arm64-v8a/libggml-hexagon.so")
-for off in (0xC6544, 0xC997C):
+for off in (0xC89F0, 0xCBE28):
     got = so[off:off + 4]
-    assert got == bytes.fromhex("3f212b39"), "NPU patch missing @%#x: %s" % (off, got.hex())
+    assert got == bytes.fromhex("3fe13d39"), "NPU patch missing @%#x: %s" % (off, got.hex())
 print("NPU patch: 2/2 anchors patched")
 
 # 2) OpenCL 兼容补丁（libggml-opencl.so，10 处：fix3 5 处 + fix4 5 处）
 oc = z.read("lib/arm64-v8a/libggml-opencl.so")
 assert oc[0xF19D:0xF19D + 15] == b"clCreateBuffer\x00", "opencl CL3 dynstr rename missing"
-assert oc[0x331270:0x331274] == bytes.fromhex("1f2003d5"), "opencl CL3 callsite nop missing"
+assert oc[0x338204:0x338208] == bytes.fromhex("1f2003d5"), "opencl CL3 callsite nop missing"
 assert oc[0xF20C:0xF20C + 16] == b"clGetDeviceInfo\x00", "opencl CSG dynstr rename missing"
-assert oc[0x3394AC:0x3394B0] == bytes.fromhex("20008052"), "opencl CSG call1 missing (mov w0,#1)"
-assert oc[0x339560:0x339564] == bytes.fromhex("20008052"), "opencl CSG call2 missing (mov w0,#1)"
+assert oc[0x340440:0x340444] == bytes.fromhex("20008052"), "opencl CSG call1 missing (mov w0,#1)"
+assert oc[0x3404F4:0x3404F8] == bytes.fromhex("20008052"), "opencl CSG call2 missing (mov w0,#1)"
 assert oc.count(b"clCreateBufferWithProperties") == 2, "CL3 name leftover != 2"
 assert oc.count(b"clGetKernelSubGroupInfo") == 2, "CSG name leftover != 2"
-assert oc[0x3405F4:0x3405F5] == bytes.fromhex("04"), "fix4 fatal flag not patched"
-for off in (0x340640, 0x340660, 0x340680, 0x3406A0):
+assert oc[0x3477F4:0x3477F5] == bytes.fromhex("04"), "fix4 fatal flag not patched"
+for off in (0x347840, 0x347860, 0x347880, 0x3478A0):
     assert oc[off:off + 4] == bytes.fromhex("1f2003d5"), "fix4 cbnz->nop missing @%#x" % off
 h_oc = hashlib.sha256(oc).hexdigest()
-assert h_oc == "ac6bb2091f331ad024cbbf3a587a7982a686389ee44916d31d93ff21444adb76", \
+assert h_oc == "6782023fe7fc7aeb9b41eac3187571011685460c156f2eb9fb0700308734ec21", \
     "opencl fixed sha256 mismatch: %s" % h_oc
 print("OpenCL patch: 10/10 points ok (CL3 + CSG + fix4); sha256 = device-verified")
 
@@ -36,7 +36,7 @@ assert "assets/bench.js" in names, "bench.js missing"
 bench = z.read("assets/bench.js")
 assert b"benchStart" in bench and b"BENCH_ENGINES" in bench
 appjs = z.read("assets/app.js")
-assert b"benchRunning" in appjs and b"1.4.0 fix" in appjs, "app.js fork edits missing"
+assert b"benchRunning" in appjs and b"1.4.1 fix" in appjs, "app.js fork edits missing"
 assert b"_sp.classList.toggle" in appjs, "statusPill fix missing"
 idx = z.read("assets/index.html")
 assert b"benchCard" in idx and b"bench.js" in idx, "index.html missing bench UI"
@@ -51,13 +51,14 @@ assert b'id="stateDot"' not in idx, "stateDot should be removed (fix5)"
 assert b'pageLogs' in appjs and b'classList.contains("active")' in appjs, \
     "log polling visibility optimization missing (fix5)"
 assert b'benchQueue' in bench and b'npullmBenchSel' in bench, "bench.js self-select missing (fix5)"
+assert b'"mtp"' in bench and b'data-bench="mtp"' in idx, "fix8: MTP bench engine missing"
 print("bench assets: app.js + index.html + bench.js + recommend.js (fix6) ok")
 
 # 4) 打包结构
 arsc = [i for i in z.infolist() if i.filename == "resources.arsc"]
 assert arsc and arsc[0].compress_type == 0, "resources.arsc must be stored"
 libs = [n for n in names if n.startswith("lib/arm64-v8a/")]
-assert len(libs) >= 35, "native libs count=%d" % len(libs)
+assert len(libs) >= 27, "native libs count=%d" % len(libs)  # 1.4.1 精简后 27 个
 assert "classes.dex" in names and "AndroidManifest.xml" in names
 print("packaging: arsc stored, %d native libs, dex+manifest ok" % len(libs))
 

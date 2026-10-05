@@ -10,14 +10,14 @@ const vm = require('vm');
 const code = fs.readFileSync(path.join(__dirname, '../assets/bench.js'), 'utf8');
 
 // 当前"勾选"的引擎（供 benchPick stub 返回）
-let currentPicks = ['htp', 'ocl', 'cpu'];
+let currentPicks = ['htp', 'ocl', 'cpu', 'mtp'];
 
 const els = {};
 function el(id) {
   if (id === 'benchPick') {
     return {
       querySelectorAll(sel) {
-        const list = sel.includes('on') ? currentPicks : ['htp', 'ocl', 'cpu'];
+        const list = sel.includes('on') ? currentPicks : ['htp', 'ocl', 'cpu', 'mtp'];
         return list.map((p) => ({
           getAttribute: () => p,
           classList: { add() {}, remove() {}, toggle() {} },
@@ -132,7 +132,7 @@ runScenario('full', true, null, (env) => {
   check(env.benchItems.cpu.tg > 0, 'tg value positive');
   check(env.benchItems.cpu.pp > 0, 'pp value positive');
   const starts = env.calls.filter((c) => c[0] === 'start').map((c) => c[1]);
-  check(JSON.stringify(starts) === JSON.stringify(['htp', 'ocl', 'cpu', 'htp']),
+  check(JSON.stringify(starts) === JSON.stringify(['htp', 'ocl', 'cpu', 'mtp', 'htp']),
     'start order + restore, got ' + JSON.stringify(starts));
   const stats = env.els.benchStat.textContent;
   check(stats.includes('最快'), 'finish message contains 最快: ' + stats);
@@ -160,7 +160,7 @@ runScenario('fail', false, (env) => { env._failEngine = 'ocl'; }, (env) => {
     env.benchItems.ocl.reason === '启动失败', 'ocl marked failed, got ' + JSON.stringify(env.benchItems.ocl));
   check(env.benchItems.cpu && env.benchItems.cpu.phase === 'done', 'cpu still done');
   const starts = env.calls.filter((c) => c[0] === 'start').map((c) => c[1]);
-  check(JSON.stringify(starts) === JSON.stringify(['htp', 'ocl', 'cpu']),
+  check(JSON.stringify(starts) === JSON.stringify(['htp', 'ocl', 'cpu', 'mtp']),
     'no restore start when idle, starts=' + JSON.stringify(starts));
   check(env.els.benchStat.textContent.includes('最快'), 'finish msg: ' + env.els.benchStat.textContent);
   scenarioFinished();

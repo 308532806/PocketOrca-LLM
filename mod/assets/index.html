@@ -34,6 +34,10 @@ svg.ic { width: 16px; height: 16px; stroke: currentColor; fill: none;
   background: none; border: none;
   border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--dim);
 }
+#stateDot { width: 9px; height: 9px; border-radius: 50%; background: var(--faint); transition: background .2s; }
+#stateDot.starting { background: var(--warn); }
+#stateDot.running  { background: var(--ok); box-shadow: 0 0 6px var(--ok); }
+#stateDot.error    { background: var(--err); box-shadow: 0 0 6px var(--err); }
 #stateMsg { max-width: 40vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- pages & tabbar ---------- */
@@ -231,17 +235,17 @@ textarea#cliPrompt {
   border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer;
 }
 .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
-/* fix6: 推荐参数卡片 */
+/* fix7: 推荐参数卡片 */
 #recCard .rec-row { display: flex; justify-content: space-between; align-items: center; padding: 4px 0; font-size: 13px; }
 #recCard .rec-row span { color: var(--dim); }
 #recCard .rec-row b { color: var(--text); font-weight: 600; }
 #recCard .rec-dev { font-size: 12px; color: var(--faint); margin-bottom: 6px; }
 #recCard .rec-note { font-size: 12px; color: var(--dim); margin-top: 8px; line-height: 1.5; }
+#recCard .rec-actions { display: flex; gap: 8px; margin-top: 10px; }
+#recCard .rec-actions button { flex: 1; }
 #recHead2 .chev { margin-left: auto; font-size: 14px; transition: transform .18s; }
 #recCard.open #recHead2 .chev { transform: rotate(90deg); }
 #recDrawer { flex-direction: column; gap: 4px; }
-#recCard .rec-actions { display: flex; gap: 8px; margin-top: 10px; }
-#recCard .rec-actions button { flex: 1; }
 input[type="range"] { flex: 1; max-width: 46%; accent-color: var(--primary); height: 26px; }
 #btnSend {
   width: 100%; border: none; border-radius: var(--r-btn);
@@ -367,22 +371,20 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
 
 /* status pill as toggle switch */
 #statusPill { cursor: pointer; gap: 7px; padding: 5px 12px; }
-#stateMsg { line-height: 16px; }  /* 与开关同高：中文基线不齐的视觉修正 */
 #pillSwitch {
   position: relative; width: 30px; height: 16px; flex: none;
 }
 #pillSwitch .track {
   position: absolute; inset: 0; border-radius: 999px;
-  background: var(--surface2); border: 1px solid var(--border); transition: background .15s;
+  background: var(--surface); border: 1px solid var(--border); transition: background .15s;
 }
 #pillSwitch .knob {
-  position: absolute; top: 2px; left: 1px; width: 12px; height: 12px; border-radius: 50%;
+  position: absolute; top: 1px; left: 1px; width: 12px; height: 12px; border-radius: 50%;
   background: var(--dim); transition: transform .15s, background .15s;
 }
 #statusPill.running #pillSwitch .track { background: var(--ok); border-color: var(--ok); }
-#statusPill.running #pillSwitch .knob { transform: translateX(16px); background: #fff; }
+#statusPill.running #pillSwitch .knob { transform: translateX(14px); background: #fff; }
 #statusPill.starting #pillSwitch .track { background: var(--warn); border-color: var(--warn); }
-#statusPill.error #pillSwitch .track { background: var(--err); border-color: var(--err); }
 
 /* stepper for CLI params */
 .step-input { display: flex; align-items: stretch; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
@@ -405,25 +407,6 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
 #paramsCliHead .chev { margin-left: auto; font-size: 14px; transition: transform .18s; }
 #paramsCliCard.open #paramsCliHead .chev { transform: rotate(90deg); }
 #btnSend { padding: 10px; font-size: 14px; }
-
-/* ---------- engine benchmark (fork add-on) ---------- */
-#btnBench {
-  width: 100%; border: 1px solid var(--border); border-radius: var(--r-btn);
-  padding: 10px; font-size: 14px; cursor: pointer;
-  background: var(--surface2); color: var(--text);
-}
-#btnBench:active { background: #1d2532; }
-#btnBench.busy { border-color: var(--warn); color: var(--warn); font-weight: 600; }
-#benchTitleHint { margin-left: auto; }
-.brow {
-  display: flex; align-items: baseline; gap: 8px;
-  padding: 7px 2px; border-bottom: 1px solid rgba(44,54,70,.5); font-size: 12px;
-}
-.brow:last-child { border-bottom: none; }
-.brow .beng { width: 42px; flex: none; font-weight: 600; color: var(--text); }
-.brow .bstat { flex: 1; text-align: right; color: var(--dim); }
-.brow .bstat .tv { color: var(--ok); font-weight: 600; }
-.brow .bstat .bad { color: var(--err); }
 </style>
 </head>
 <body>
@@ -483,16 +466,20 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
           <button data-profile="ocl">GPU</button>
           <button data-profile="cpu">CPU</button>
           <button data-profile="bmoe">BigMoE</button>
+          <button data-profile="mtp">MTP</button>
         </div>
       </div>
 
+
+
       <div class="card" id="benchCard">
-        <div class="card-title"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg><span data-i18n="引擎测速">引擎测速</span><span class="dim-inline" id="benchTitleHint" data-i18n="当前模型 · NPU/GPU/CPU 依次实测">当前模型 · NPU/GPU/CPU 依次实测</span></div>
+        <div class="card-title"><svg class="ic" viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg><span data-i18n="引擎测速">引擎测速</span><span class="dim-inline" id="benchTitleHint" data-i18n="当前模型 · NPU/GPU/CPU/MTP 依次实测">当前模型 · NPU/GPU/CPU/MTP 依次实测</span></div>
         <div class="dim-line" data-i18n="会短暂停止当前服务并逐一切换引擎，完成自动恢复" style="margin-bottom:6px">会短暂停止当前服务并逐一切换引擎，完成自动恢复</div>
         <div class="preset-row" id="benchPick" style="margin-top:0; margin-bottom:6px">
           <button class="chip on" data-bench="htp">NPU</button>
           <button class="chip on" data-bench="ocl">GPU</button>
           <button class="chip on" data-bench="cpu">CPU</button>
+          <button class="chip on" data-bench="mtp">MTP</button>
         </div>
         <div class="dim-line" data-i18n="低内存/老机型建议只选 CPU（GPU 可能造成系统压力）" style="margin-bottom:8px">低内存/老机型建议只选 CPU（GPU 可能造成系统压力）</div>
         <button id="btnBench" onclick="benchStart()" data-i18n="开始测速">开始测速</button>
@@ -510,11 +497,12 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
         </div>
       </div>
 
+
       <div class="card" id="paramsCard">
         <div class="card-title" id="paramsHead" onclick="toggleParams()"><svg class="ic" viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg><span data-i18n="参数">参数</span><span class="chev" id="paramsChev">▸</span></div>
         <div id="params" class="drawer" style="display:none">
           <div class="prow stack" id="rowCtx">
-            <div class="plabel"><div><span data-i18n="上下文">上下文</span></div></div>
+            <div class="plabel" style="padding:5px 0"><div><span data-i18n="上下文">上下文</span></div></div>
             <div class="seg" id="ctxSeg">
               <button data-ctx="2048">2K</button>
               <button data-ctx="4096">4K</button>
@@ -522,6 +510,16 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
               <button data-ctx="16384">16K</button>
               <button data-ctx="32768">32K</button>
               <button data-ctx="65536">64K</button>
+            </div>
+            <div class="phint" id="ctxWarn" style="display:none"></div>
+          </div>
+          <div class="prow stack" id="rowSleepIdle" style="display:none">
+            <div class="plabel"><div><span data-i18n="空闲自动卸载">空闲自动卸载</span><div class="phint" data-i18n="空闲后释放模型内存 · 下次请求自动重载">空闲后释放模型内存 · 下次请求自动重载</div></div></div>
+            <div class="seg" id="sleepIdleSeg">
+              <button data-si="0" data-i18n="关闭">关闭</button>
+              <button data-si="180">3m</button>
+              <button data-si="600">10m</button>
+              <button data-si="1800">30m</button>
             </div>
           </div>
           <div class="prow">
@@ -545,7 +543,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
             <label class="switch"><input type="checkbox" id="reasoning"><span class="knob"></span></label>
           </div>
           <div class="prow">
-            <div class="plabel"><div><span data-i18n="KV 卸载（省内存/速度权衡）">KV 卸载（省内存/速度权衡）</span><div class="phint" data-i18n="默认关：KV 留在内存更稳">默认关：KV 留在内存更稳</div></div></div>
+            <div class="plabel"><div><span data-i18n="KV 卸载">KV 卸载</span></div></div>
             <label class="switch"><input type="checkbox" id="kvoff"><span class="knob"></span></label>
           </div>
           <div class="prow" id="rowPort">
@@ -556,7 +554,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
       </div>
 
       <button id="btnMain" onclick="onMainButton()" data-i18n="启动服务">启动服务</button>
-      <div id="verLine">1.4.0 fix7 · 状态恢复 + 参数展示 + 推荐卡片折叠 · llama.cpp (MIT)</div>
+      <div id="verLine">1.4.1 fix8 · 状态恢复 + 参数展示 + 推荐卡片折叠 + MTP 测速 · llama.cpp (MIT)</div>
     </div>
 
     <!-- ================= CLI PAGE ================= -->
@@ -643,6 +641,8 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
       <div id="chatStats" class="dim-line" style="text-align:center; flex:none; min-height:16px;"></div>
       <div id="chatInputRow" style="flex:none; display:flex; gap:8px; align-items:flex-end; padding:2px 0;">
         <textarea id="chatInput" rows="1" data-i18n-ph="说点什么…（Enter 发送）" style="flex:1; min-height:40px; max-height:168px;"></textarea>
+        <button id="btnThink" data-i18n-t="思考" title="切换深度思考" style="flex:none; min-width:52px; height:40px; border:none; border-radius:10px; background:var(--surface2); color:var(--dim); font-size:13px; font-weight:600;">思考</button>
+        <button id="btnThinkEnd" data-i18n-t="结束思考" style="flex:none; min-width:64px; height:40px; border:none; border-radius:10px; background:var(--warn); color:#0e1116; font-size:13px; font-weight:600; display:none;">结束思考</button>
         <button id="btnChatSend" data-i18n="发送" style="flex:none; min-width:72px; height:40px; border:none; border-radius:10px; background:var(--primary); color:#fff; font-size:14px; font-weight:600;">发送</button>
       </div>
     </div>

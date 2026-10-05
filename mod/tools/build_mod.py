@@ -1,79 +1,74 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-PocketOrca-LLM v1.4.0 修复包构建（APK surgery，不重编 dex）
+PocketOrca-LLM v1.4.1 修复包构建（APK surgery，不重编 dex）
 
-基线：官方 PocketOrca-LLM-v1.4.0-release.apk
+基线：官方 PocketOrca-LLM-v1.4.1-release.apk
+  sha256 077b1ce187eefaa92fe9093c52074fd70acd47e0c7b1e3392c2bdf26ed102f1f
 
 修改清单：
  1) libggml-hexagon.so — NPU(HTP) 启动崩溃修复（issue #1）
       DMA64 扩展映射与内置旧 libcdsprpc.so 不兼容 → fastrpc_mmap 0xe → exit 134。
-      0xC6544 / 0xC997C:  strb w8 -> strb wzr  (opt_dma64 = 0)
+      0xC89F0 / 0xCBE28:  strb w8 -> strb wzr  (opt_dma64 = 0)
+      （1.4.1 指令为 strb w8,[x9,#3960]；1.4.0 是 [x9,#297]，语义相同）
  2) libggml-opencl.so — 旧 Adreno 驱动兼容（缺 OpenCL 3.0 / 2.1 符号）
-      该库因 BIND_NOW 在加载期解析全部符号；旧驱动不导出
-      clCreateBufferWithProperties（CL3.0）与 clGetKernelSubGroupInfo（CL2.1）。
       a) dynstr @0xF19D: clCreateBufferWithProperties -> clCreateBuffer（等长 29B）
-         callsite @0x331270: bl -> nop
-         （该调用仅属于 GGML_OPENCL_ADRENO_USE_LARGE_BUFFER 默认关闭的实验路径）
-      b) dynstr @0xF20C: clGetKernelSubGroupInfo -> clGetDeviceInfo（等长 24B，占位；
-         调用点已短路，不会真的调用）
-         callsites @0x3394AC / @0x339560: bl -> mov w0,#1
-         （= 查询返回失败 → 走 llama.cpp 既有降级：禁用两个 mamba2 专用
-            subgroup kernel；老驱动本就不具备该查询能力）
-       c) fix4: flash_attn_repack kernel 编译失败降级（旧驱动缺 cl_khr_3d_image_writes）
-          repack 构建调用原为 fatal=true：编译失败 → exit(1)；JNI 进程内运行
-          导致整个 App 闪退（真机 EXIT_SELF 实证）。修复：
-            @0x3405F4: fatal 参数 1 -> 0（编译失败返回 nullptr 不再退出）
-            @0x340640/0x340660/0x340680/0x3406A0: 4 处 CL_CHECK 失败跳转 cbnz -> nop
-          （wmm prefill 路径在本包不可达：Adreno bin 内核库不随包分发，
-            use_fa_bin_kernels_prefill 恒 false；4 个句柄保持 NULL 无任何使用）
- 3) assets/app.js、index.html 替换；assets/bench.js 新增（三引擎测速）
+         callsite @0x338204: bl -> nop
+      b) dynstr @0xF20C: clGetKernelSubGroupInfo -> clGetDeviceInfo（等长 24B）
+         callsites @0x340440 / @0x3404F4: bl -> mov w0,#1
+      c) flash_attn_repack kernel 编译失败降级：
+            @0x3477F4: fatal 参数 1 -> 0
+            @0x347840/0x347860/0x347880/0x3478A0: 4 处 cbnz -> nop
+ 3) assets/app.js、index.html 替换；assets/bench.js（测速含 MTP）、recommend.js 新增
 
-用法: python3 build_mod.py <official_v1.4.0.apk> <mod_dir> <out_apk>
+注意：所有补丁点均为文件字节域偏移（fileoff）。1.4.1 的 .text vaddr = fileoff + 0x4000，
+不要沿用 1.4.0 的换算关系。
+
+用法: python3 build_mod.py <official_v1.4.1.apk> <mod_dir> <out_apk>
 """
 import sys, os, zipfile, hashlib
 
-EXPECT_APK_SHA256 = "14885aadb8d38aee9fc3ebc9fc393f148788901a2d63cdc082ff8ac5008e5478"
+EXPECT_APK_SHA256 = "077b1ce187eefaa92fe9093c52074fd70acd47e0c7b1e3392c2bdf26ed102f1f"
 
 HEXAGON = "lib/arm64-v8a/libggml-hexagon.so"
 OPENCL = "lib/arm64-v8a/libggml-opencl.so"
 
-EXPECT_HEXAGON_SHA256 = "c781bb1834dadf0bbfd42bf2f817fef5520de7e9be70b378585a2599df0a7596"
-EXPECT_OPENCL_SHA256 = "401d5b32bc160b7971c5319323d3f02be1b460b4a462ccdbe49b2b49324516e5"
+EXPECT_HEXAGON_SHA256 = "2459a076fb43e95e4e0fb2edb46dcc907e0f9e9b46ecb659802753cc82821186"
+EXPECT_OPENCL_SHA256 = "173e2dbcb2cda9c560ec1b92ca9896b3e304c214578c47cfa5a61ec12cc4c410"
 
 # --- libggml-hexagon.so: (文件偏移 -> (原字节, 补丁字节)) ---
 HEXAGON_ANCHORS = {
-    0xC6544: (bytes.fromhex("28212b39"), bytes.fromhex("3f212b39")),
-    0xC997C: (bytes.fromhex("28212b39"), bytes.fromhex("3f212b39")),
+    0xC89F0: (bytes.fromhex("28e13d39"), bytes.fromhex("3fe13d39")),
+    0xCBE28: (bytes.fromhex("28e13d39"), bytes.fromhex("3fe13d39")),
 }
 
 # --- libggml-opencl.so 补丁点（全部为文件偏移） ---
 CL3_DYNSTR_OFF  = 0xF19D     # clCreateBufferWithProperties -> clCreateBuffer
-CL3_CALLSITE_OFF = 0x331270  # bl -> nop
+CL3_CALLSITE_OFF = 0x338204  # bl -> nop
 CSG_DYNSTR_OFF  = 0xF20C     # clGetKernelSubGroupInfo -> clGetDeviceInfo
-CSG_CALL1_OFF   = 0x3394AC   # bl -> mov w0,#1
-CSG_CALL2_OFF   = 0x339560   # bl -> mov w0,#1
+CSG_CALL1_OFF   = 0x340440   # bl -> mov w0,#1
+CSG_CALL2_OFF   = 0x3404F4   # bl -> mov w0,#1
 
 CL3_NAME_OLD = b"clCreateBufferWithProperties\x00"        # 29 bytes
 CL3_NAME_NEW = b"clCreateBuffer\x00" + b"\x00" * 14       # 29 bytes（等长）
 CSG_NAME_OLD = b"clGetKernelSubGroupInfo\x00"             # 24 bytes
 CSG_NAME_NEW = b"clGetDeviceInfo\x00" + b"\x00" * 8       # 24 bytes（等长）
 
-CL3_CALL_OLD = bytes.fromhex("00fd0094")   # bl clCreateBufferWithProperties@plt
+CL3_CALL_OLD = bytes.fromhex("17fe0094")   # bl clCreateBufferWithProperties@plt
 CL3_CALL_NEW = bytes.fromhex("1f2003d5")   # nop
-CSG_CALL1_OLD = bytes.fromhex("85dc0094")  # bl clGetKernelSubGroupInfo@plt
-CSG_CALL2_OLD = bytes.fromhex("58dc0094")
+CSG_CALL1_OLD = bytes.fromhex("9cdd0094")  # bl clGetKernelSubGroupInfo@plt
+CSG_CALL2_OLD = bytes.fromhex("6fdd0094")
 CSG_CALL_NEW = bytes.fromhex("20008052")   # mov w0, #1  (非 CL_SUCCESS)
 
 # fix4: repack 编译失败降级（fatal=1 -> 0；4 处 CL_CHECK 失败跳转 -> nop）
 FIX4_PATCH_SET = [
-    (0x3405F4, bytes.fromhex("24"),       bytes.fromhex("04"),       "fatal flag"),
-    (0x340640, bytes.fromhex("e3ab0535"), bytes.fromhex("1f2003d5"), "cbnz->nop #1"),
-    (0x340660, bytes.fromhex("a3ad0535"), bytes.fromhex("1f2003d5"), "cbnz->nop #2"),
-    (0x340680, bytes.fromhex("63af0535"), bytes.fromhex("1f2003d5"), "cbnz->nop #3"),
-    (0x3406A0, bytes.fromhex("23b10535"), bytes.fromhex("1f2003d5"), "cbnz->nop #4"),
+    (0x3477F4, bytes.fromhex("24"),       bytes.fromhex("04"),       "fatal flag"),
+    (0x347840, bytes.fromhex("63b10535"), bytes.fromhex("1f2003d5"), "cbnz->nop #1"),
+    (0x347860, bytes.fromhex("23b30535"), bytes.fromhex("1f2003d5"), "cbnz->nop #2"),
+    (0x347880, bytes.fromhex("e3b40535"), bytes.fromhex("1f2003d5"), "cbnz->nop #3"),
+    (0x3478A0, bytes.fromhex("a3b60535"), bytes.fromhex("1f2003d5"), "cbnz->nop #4"),
 ]
-EXPECT_FIXED_OPENCL_SHA256 = "ac6bb2091f331ad024cbbf3a587a7982a686389ee44916d31d93ff21444adb76"
+EXPECT_FIXED_OPENCL_SHA256 = "6782023fe7fc7aeb9b41eac3187571011685460c156f2eb9fb0700308734ec21"
 
 REPLACE_ASSETS = ["assets/app.js", "assets/index.html", "assets/bench.js", "assets/recommend.js"]
 

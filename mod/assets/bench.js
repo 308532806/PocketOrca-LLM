@@ -20,9 +20,9 @@ var benchSaved = null;         // 测速前的服务状态与参数
 var benchIdx = 0;              // 当前引擎序号
 var benchItems = {};           // 各引擎结果 { phase, loadMs, pp, tg, reason }
 var benchT0 = 0;               // 当前引擎启动时刻
-var BENCH_ENGINES = ["htp", "ocl", "cpu"];
+var BENCH_ENGINES = ["htp", "ocl", "cpu", "mtp"];
 var benchQueue = BENCH_ENGINES.slice();   // 本次要测的引擎（自选）
-var BENCH_LABELS = { htp: "NPU", ocl: "GPU", cpu: "CPU" };
+var BENCH_LABELS = { htp: "NPU", ocl: "GPU", cpu: "CPU", mtp: "MTP" };
 var BENCH_START_TIMEOUT = 240000; // 单引擎启动上限（Java 探活 120s + 余量）
 var BENCH_HTTP_TIMEOUT = 150000;  // 单次 HTTP 请求看门狗
 
@@ -194,6 +194,8 @@ function benchStart() {
   if (benchRunning) { benchAbortNow(); return; }
   if (!model || !model.path) { toastT("先选择模型文件"); return; }
   if (0 === String(model.path).indexOf("__bmoe__")) { toastT("BigMoE 模型不支持测速"); return; }
+  // fix8: MTP 引擎需要 MTP-GGUF（Qwen3.5 MTP 权重），普通模型会启动失败——提示但不拦截（失败显示"启动失败"也是有效结果）
+  // （MTP profile 的 requires 量化检查由 Java 层负责，JS 不重复）
 
   // 自选引擎：有勾选 UI 时用勾选值（空 = 提示），无 UI（测试环境）默认全选
   var box = benchPickBox();
