@@ -52,7 +52,15 @@ assert b'pageLogs' in appjs and b'classList.contains("active")' in appjs, \
     "log polling visibility optimization missing (fix5)"
 assert b'benchQueue' in bench and b'npullmBenchSel' in bench, "bench.js self-select missing (fix5)"
 assert b'"mtp"' in bench and b'data-bench="mtp"' in idx, "fix8: MTP bench engine missing"
+# fix9: 跟随滚动 / 键盘遮挡 / MTP 失败原因细化（CI 门禁必须覆盖新修改点）
+assert b'chatFollowBtn' in idx and b'chatFollow' in appjs, "fix9: chat follow-scroll missing"
+assert b'interactive-widget=resizes-content' in idx, "fix9: keyboard viewport fix missing"
+assert b'visualViewport' in appjs, "fix9: keyboard visualViewport fallback missing"
+assert b'benchFailReason' in bench, "fix9: MTP fail reason missing"
+assert b'1.4.1 fix8' not in idx, "stale hardcoded version string in index.html"
+assert b'$("verLine")' in appjs, "verLine not filled from APP_VER"
 print("bench assets: app.js + index.html + bench.js + recommend.js (fix6) ok")
+print("fix9 assets: follow-scroll + keyboard + mtp reason + verLine ok")
 
 # 4) 打包结构
 arsc = [i for i in z.infolist() if i.filename == "resources.arsc"]

@@ -1153,6 +1153,8 @@ function doFactoryReset() {
 
 function fillAbout() {
     $("aboutVer").textContent = APP_VER
+    var vl = $("verLine")
+    if (vl) vl.textContent = APP_VER + " · llama.cpp (MIT)"
 }
 
 function welcomeInit() {
