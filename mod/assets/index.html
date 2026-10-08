@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content">
 <title>PocketOrca-LLM</title>
 <style>
 :root {
@@ -490,6 +490,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
           <button class="chip on" data-bench="cpu">CPU</button>
           <button class="chip on" data-bench="mtp">MTP</button>
         </div>
+        <div class="dim-line" data-i18n="MTP 引擎需要 MTP 权重模型（普通 GGUF 会启动失败并提示）" style="margin-bottom:8px">MTP 引擎需要 MTP 权重模型（普通 GGUF 会启动失败并提示）</div>
         <div class="dim-line" data-i18n="低内存/老机型建议只选 CPU（GPU 可能造成系统压力）" style="margin-bottom:8px">低内存/老机型建议只选 CPU（GPU 可能造成系统压力）</div>
         <button id="btnBench" onclick="benchStart()" data-i18n="开始测速">开始测速</button>
         <div id="benchStat" class="dim-line" style="display:none; margin-top:8px"></div>
@@ -654,6 +655,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
         <button id="btnThinkEnd" data-i18n-t="结束思考" style="flex:none; min-width:64px; height:40px; border:none; border-radius:10px; background:var(--warn); color:#0e1116; font-size:13px; font-weight:600; display:none;">结束思考</button>
         <button id="btnChatSend" data-i18n="发送" style="flex:none; min-width:72px; height:40px; border:none; border-radius:10px; background:var(--primary); color:#fff; font-size:14px; font-weight:600;">发送</button>
       </div>
+      <button id="chatFollowBtn" data-i18n="↓ 回到底部" style="display:none; position:absolute; right:14px; bottom:78px; z-index:5; border:1px solid var(--border); background:var(--surface2); color:var(--text); border-radius:999px; padding:7px 14px; font-size:12px; font-weight:600; box-shadow:0 2px 10px rgba(0,0,0,.45);">↓ 回到底部</button>
     </div>
 
     <!-- ================= SETTINGS PAGE ================= -->

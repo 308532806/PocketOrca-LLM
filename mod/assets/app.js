@@ -682,7 +682,7 @@ function chatAddBubble(e, t) {
         a = $("chatEmpty");
     a && a.remove();
     var o = document.createElement("div");
-    return o.className = "bubble " + ("user" === e ? "user" : "bot"), o.textContent = t, n.appendChild(o), n.scrollTop = n.scrollHeight, o
+    return o.className = "bubble " + ("user" === e ? "user" : "bot"), o.textContent = t, n.appendChild(o), n.scrollTop = n.scrollHeight, chatFollow = !0, chatUpdateFollowBtn(), o
 }
 
 function chatStreamBubble() {
@@ -697,7 +697,7 @@ function chatStreamBubble() {
     };
     var o = document.createElement("span"),
         r = document.createElement("span");
-    return r.className = "cursor", n.appendChild(a), n.appendChild(o), n.appendChild(r), e.appendChild(n), e.scrollTop = e.scrollHeight, {
+    return r.className = "cursor", n.appendChild(a), n.appendChild(o), n.appendChild(r), e.appendChild(n), e.scrollTop = e.scrollHeight, chatFollow = !0, chatUpdateFollowBtn(), {
         bubble: n,
         think: a,
         body: o,
@@ -789,10 +789,10 @@ window.onChatChunk = function(e) {
         }
         chatBody += e, t.body.textContent = chatBody;
         var r = $("chatScroll");
-        r.scrollTop = r.scrollHeight
+        chatFollow ? r.scrollTop = r.scrollHeight : chatUpdateFollowBtn()
     }
 }, window.onChatDone = function(e, t) {
-    chatStreaming = !1;
+    chatStreaming = !1, chatUpdateFollowBtn();
     var n = window._chatUI;
     $("btnChatSend").textContent = T("发送");
     var a = $("btnThinkEnd");
@@ -1100,7 +1100,7 @@ function applyI18nDom() {
     }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-    APP_VER = "1.4.1 fix8";
+    APP_VER = "1.4.1 fix9";
 
 function applyTheme(e) {
     var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1287,3 +1287,54 @@ $("langSel").addEventListener("change", function() {
             t && window.onBmoeDlStatus && window.onBmoeDlStatus(t)
         }
     }, 3000);
+/* ===== fix9: chat 跟随滚动 + 软键盘遮挡兜底（fork 新增，纯 Web 层） ===== */
+var chatFollow = true;
+
+function chatNearBottom() {
+    var el = document.getElementById("chatScroll");
+    return !!el && el.scrollTop + el.clientHeight >= el.scrollHeight - 24;
+}
+
+function chatUpdateFollowBtn() {
+    var btn = document.getElementById("chatFollowBtn");
+    if (btn) btn.style.display = (chatStreaming && !chatFollow) ? "block" : "none";
+}
+
+(function () {
+    var el = document.getElementById("chatScroll");
+    if (el && el.addEventListener) {
+        el.addEventListener("scroll", function () {
+            chatFollow = chatNearBottom();
+            chatUpdateFollowBtn();
+        });
+    }
+    var btn = document.getElementById("chatFollowBtn");
+    if (btn && btn.addEventListener) {
+        btn.addEventListener("click", function () {
+            chatFollow = true;
+            var sc = document.getElementById("chatScroll");
+            if (sc) sc.scrollTop = sc.scrollHeight;
+            chatUpdateFollowBtn();
+        });
+    }
+})();
+
+/* 软键盘弹起时若布局视口未收缩（旧 WebView / adjustPan），手动压缩 body 高度，保证输入行可见。
+   新 WebView 上 viewport 的 interactive-widget=resizes-content 已处理，此处为兜底。 */
+(function () {
+    var vv = window.visualViewport;
+    if (!vv || !vv.addEventListener) return;
+    vv.addEventListener("resize", function () {
+        var vh = vv.height;
+        if (vh < window.innerHeight - 120) {
+            document.body.style.height = vh + "px";
+            var page = document.getElementById("pageChat");
+            if (page && page.classList.contains("active")) {
+                var row = document.getElementById("chatInputRow");
+                if (row) setTimeout(function () { try { row.scrollIntoView({ block: "end" }); } catch (e) {} }, 60);
+            }
+        } else {
+            document.body.style.height = "";
+        }
+    });
+})();

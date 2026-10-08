@@ -194,7 +194,8 @@ function benchStart() {
   if (benchRunning) { benchAbortNow(); return; }
   if (!model || !model.path) { toastT("先选择模型文件"); return; }
   if (0 === String(model.path).indexOf("__bmoe__")) { toastT("BigMoE 模型不支持测速"); return; }
-  // fix8: MTP 引擎需要 MTP-GGUF（Qwen3.5 MTP 权重），普通模型会启动失败——提示但不拦截（失败显示"启动失败"也是有效结果）
+  // fix8: MTP 引擎需要 MTP-GGUF（Qwen3.5 MTP 权重），普通模型会启动失败——提示但不拦截（失败也是有效结果）
+  // fix9: 失败原因细化见 benchFailReason（读日志特征，普通模型显示"需 MTP 权重"而非笼统"启动失败"）
   // （MTP profile 的 requires 量化检查由 Java 层负责，JS 不重复）
 
   // 自选引擎：有勾选 UI 时用勾选值（空 = 提示），无 UI（测试环境）默认全选
@@ -270,6 +271,18 @@ function benchNext() {
   benchPollReady(0);
 }
 
+/* fix9: MTP 失败原因细化 —— 普通 GGUF 缺 MTP 层时给出可操作提示，而非笼统"启动失败" */
+function benchFailReason(eng) {
+  if (eng === "mtp") {
+    try {
+      var log = bridge("getLog") || "";
+      if (log.indexOf("doesn't contain MTP layers") >= 0 || log.indexOf("failed to create MTP context") >= 0)
+        return T("需 MTP 权重（当前模型不含 MTP 层）");
+    } catch (e) { }
+  }
+  return T("启动失败");
+}
+
 function benchPollReady(elapsed) {
   if (!benchRunning) return;
   var eng = benchQueue[benchIdx];
@@ -278,7 +291,7 @@ function benchPollReady(elapsed) {
   if (st && st.running) { benchWarm(eng, Date.now() - benchT0); return; }
   var s = st && st.state;
   // error = 启动失败/健康检查超时；ready（启动后 4s 又回到 ready）= 进程退出
-  if (s === "error" || (s === "ready" && elapsed > 4000)) { benchFail(eng, T("启动失败")); return; }
+  if (s === "error" || (s === "ready" && elapsed > 4000)) { benchFail(eng, benchFailReason(eng)); return; }
   setTimeout(function () { benchPollReady(elapsed + 1000); }, 1000);
 }
 
