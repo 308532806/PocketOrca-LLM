@@ -62,6 +62,12 @@ var I18N = {
       "本机无可用 NPU，已自动屏蔽": "本機無可用 NPU，已自動遮蔽",
       "本机无可用 NPU，MTP 不可用": "本機無可用 NPU，MTP 不可用",
       "当前模型不含 MTP 层，已自动屏蔽": "目前模型不含 MTP 層，已自動遮蔽",
+      "内存扩展": "記憶體擴展",
+      "闪存虚拟内存，防 OOM 但更慢": "快閃記憶體虛擬記憶體，防 OOM 但較慢",
+      "模型较大（占内存超 6 成），已调低上下文防 OOM": "模型較大（佔記憶體超 6 成），已調低上下文防 OOM",
+      "模型较小，已调高上下文": "模型較小，已調高上下文",
+      "内存扩展已开启，上下文放宽一档（扩展内存较慢，超出物理内存部分会变慢）": "記憶體擴展已開啟，上下文放寬一檔（擴展記憶體較慢，超出實體記憶體部分會變慢）",
+      "内存扩展已开启（已达上下文上限）": "記憶體擴展已開啟（已達上下文上限）",
       "启动超时": "啟動逾時",
       "请求失败": "請求失敗",
       "无 timings 数据": "無 timings 資料",
@@ -242,6 +248,12 @@ var I18N = {
       "本机无可用 NPU，已自动屏蔽": "No usable NPU on this device, hidden automatically",
       "本机无可用 NPU，MTP 不可用": "No usable NPU on this device, MTP unavailable",
       "当前模型不含 MTP 层，已自动屏蔽": "Current model has no MTP layers, hidden automatically",
+      "内存扩展": "RAM extension",
+      "闪存虚拟内存，防 OOM 但更慢": "Flash-based virtual RAM: prevents OOM but slower",
+      "模型较大（占内存超 6 成），已调低上下文防 OOM": "Large model (>60% of RAM): context lowered to avoid OOM",
+      "模型较小，已调高上下文": "Small model: context raised",
+      "内存扩展已开启，上下文放宽一档（扩展内存较慢，超出物理内存部分会变慢）": "RAM extension on: context raised one tier (extended RAM is slower)",
+      "内存扩展已开启（已达上下文上限）": "RAM extension on (context already at max)",
       "启动超时": "Start timed out",
       "请求失败": "Request failed",
       "无 timings 数据": "No timings in response",
@@ -1123,7 +1135,7 @@ function applyI18nDom() {
     }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-    APP_VER = "1.4.1 fix10";
+    APP_VER = "1.4.1 fix11";
 
 function applyTheme(e) {
     var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;

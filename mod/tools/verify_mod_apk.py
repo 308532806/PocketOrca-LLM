@@ -43,6 +43,8 @@ assert b"benchCard" in idx and b"bench.js" in idx, "index.html missing bench UI"
 # fix6: recommend.js
 rec = z.read("assets/recommend.js")
 assert b"findRecommend" in rec and b"applyRecommend" in rec, "recommend.js missing core functions"
+assert b"npullmMemExt" in rec and b"toggleMemExt" in rec, "recommend.js memext toggle missing"
+assert b"CTX_TIERS" in rec, "recommend.js model-aware ctx tiers missing"
 assert b'recommend.js' in idx and b'recCard' in idx, "index.html missing recommend UI"
 assert b'npullmWelcome' in appjs, "app.js missing welcome cache for recommend"
 # fix5: 自选测速 chips / 日志轮询优化 / 指示灯移除

@@ -39,6 +39,39 @@
       note: "入门平台，小上下文" }
   ];
 
+  /* 上下文档位（调整时按档跳，不搞碎值） */
+  var CTX_TIERS = [2048, 4096, 8192, 16384, 32768];
+  function tierIndex(ctx) {
+    var idx = 0;
+    for (var i = 0; i < CTX_TIERS.length; i++) {
+      if (CTX_TIERS[i] <= ctx) idx = i;
+    }
+    return idx;
+  }
+
+  /* 内存扩展（虚拟内存）手动开关：无 bridge 能读到 swap 状态，只能手动 */
+  function memExtOn() {
+    try { return typeof localStorage !== "undefined" && localStorage.getItem("npullmMemExt") === "1"; }
+    catch (e) { return false; }
+  }
+  function toggleMemExt(on) {
+    try { if (typeof localStorage !== "undefined") localStorage.setItem("npullmMemExt", on ? "1" : "0"); } catch (e) {}
+    renderRecommend();
+  }
+
+  /* 当前模型信息（BigMoE 无文件大小，走模板不调整） */
+  function modelInfo() {
+    try {
+      if (typeof model === "undefined" || !model || !model.path) return null;
+      if (model.path.indexOf("__bmoe__") === 0) return null;
+      var gb = (model.sizeBytes || 0) / 1073741824;
+      if (!(gb > 0)) return null;
+      return { gb: gb, name: model.name || "" };
+    } catch (e) { return null; }
+  }
+
+  function T_(s) { return (typeof T === "function") ? T(s) : s; }
+
   /* 默认模板（按内存分级的兜底） */
   function defaultTemplate(ramGB) {
     if (ramGB >= 12) return { name: "高内存设备（未识别 SoC）",
@@ -63,20 +96,53 @@
     } catch (e) { return null; }
   }
 
-  /* 匹配模板：返回 {tpl, device, fallback} */
+  /* 匹配模板：返回 {tpl, device, fallback, memExt, model}
+   * 三维：SoC 模板（基准）→ 模型大小（按占内存比例调 ctx 档位）
+   *       → 内存扩展开关（放宽一档，上限 32768） */
   function findRecommend() {
     var w = readWelcome() || {};
     var soc = (w.soc || "").toLowerCase();
     var ram = w.ramGB || 0;
-    for (var i = 0; i < TEMPLATES.length; i++) {
-      var t = TEMPLATES[i];
-      for (var j = 0; j < t.match.length; j++) {
-        if (soc.indexOf(t.match[j]) >= 0) {
-          return { tpl: t, device: w, fallback: false };
-        }
+    var base = null, fallback = false, i, j;
+    for (i = 0; i < TEMPLATES.length; i++) {
+      var tm = TEMPLATES[i];
+      for (j = 0; j < tm.match.length; j++) {
+        if (soc.indexOf(tm.match[j]) >= 0) { base = tm; break; }
+      }
+      if (base) break;
+    }
+    if (!base) { base = defaultTemplate(ram); fallback = true; }
+    // 深拷贝：调整不污染模板库
+    var tpl = { match: base.match, name: base.name, ctx: base.ctx, ubatch: base.ubatch,
+                threads: base.threads, kvoff: base.kvoff, profile: base.profile,
+                note: base.note || "" };
+    var notes = [];
+    // 1) 模型感知：大模型降档防 OOM，小模型升档吃满内存
+    var mi = modelInfo();
+    if (mi && ram > 0) {
+      var ratio = mi.gb / ram;
+      var ti = tierIndex(tpl.ctx);
+      if (ratio > 0.6 && ti > 0) {
+        tpl.ctx = CTX_TIERS[ti - 1];
+        notes.push(T_("模型较大（占内存超 6 成），已调低上下文防 OOM"));
+      } else if (ratio < 0.3 && ti < CTX_TIERS.length - 1) {
+        tpl.ctx = CTX_TIERS[ti + 1];
+        notes.push(T_("模型较小，已调高上下文"));
       }
     }
-    return { tpl: defaultTemplate(ram), device: w, fallback: true };
+    // 2) 内存扩展：ctx 放宽一档（闪存 swap 防 OOM 用，速度指望不上）
+    var me = memExtOn();
+    if (me) {
+      var tj = tierIndex(tpl.ctx);
+      if (tj < CTX_TIERS.length - 1) {
+        tpl.ctx = CTX_TIERS[tj + 1];
+        notes.push(T_("内存扩展已开启，上下文放宽一档（扩展内存较慢，超出物理内存部分会变慢）"));
+      } else {
+        notes.push(T_("内存扩展已开启（已达上下文上限）"));
+      }
+    }
+    if (notes.length) tpl.note = (tpl.note ? tpl.note + "；" : "") + notes.join("；");
+    return { tpl: tpl, device: w, fallback: fallback, memExt: me, model: mi };
   }
 
   /* 应用到当前设置（依赖 app.js 的全局函数与元素） */
@@ -139,17 +205,43 @@
         (d.ramGB ? " · " + d.ramGB + "GB" : "") +
         (d.cores ? " · " + d.cores + " 核" : "") + "</div>";
     }
-    body.innerHTML = devLine + rows.join("") +
+    // 内存扩展开关（手动：无 bridge 能读到 swap 状态）
+    var meOn = !!r.memExt;
+    var meRow = '<label class="rec-row" style="cursor:pointer">' +
+      "<span>" + T_("内存扩展") +
+      '<div class="phint" style="font-size:11px;color:var(--faint)">' +
+      T_("闪存虚拟内存，防 OOM 但更慢") + "</div></span>" +
+      '<input type="checkbox" style="width:20px;height:20px" ' +
+      (meOn ? "checked" : "") + ' onchange="toggleMemExt(this.checked)"></label>';
+    body.innerHTML = devLine + rows.join("") + meRow +
       '<div class="rec-note">' + (t.note || "") + "</div>";
   }
 
+  /* 换模型后重渲染（模型感知推荐依赖当前模型；与 caps.js 的包装链式共存） */
+  (function () {
+    if (typeof window === "undefined") return;
+    var omp = window.onModelPicked;
+    if (typeof omp === "function" && !omp._recWrapped) {
+      var wrapped = function (m) {
+        var r = omp(m);
+        try { renderRecommend(); } catch (e) {}
+        return r;
+      };
+      wrapped._recWrapped = true;
+      window.onModelPicked = wrapped;
+    }
+  })();
+
   /* 导出到全局 */
   var api = { findRecommend: findRecommend, applyRecommend: applyRecommend,
-              renderRecommend: renderRecommend, TEMPLATES: TEMPLATES };
+              renderRecommend: renderRecommend, toggleMemExt: toggleMemExt,
+              memExtOn: memExtOn, TEMPLATES: TEMPLATES, CTX_TIERS: CTX_TIERS };
   if (typeof window !== "undefined") {
     window.findRecommend = findRecommend;
     window.applyRecommend = applyRecommend;
     window.renderRecommend = renderRecommend;
+    window.toggleMemExt = toggleMemExt;
+    window.memExtOn = memExtOn;
   }
   if (typeof globalThis !== "undefined") globalThis._recommend = api;
 })();
