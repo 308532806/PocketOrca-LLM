@@ -234,6 +234,8 @@ select, input {
 .bubble h1.mdh, .bubble h2.mdh, .bubble h3.mdh { margin: 8px 0 4px; font-size: 15px; }
 .bubble code { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 1px 6px; font-size: 12px; font-family: monospace; }
 .bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
+/* fix13: 输入框 placeholder 永不换行被裁（fix12 加清空按钮后输入框变窄） */
+textarea#chatInput::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .cblock { margin: 6px 0 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .cblock .chead { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface2); font-size: 11px; color: var(--dim); }
 .cblock .cpcopy { border: 1px solid var(--border); background: none; color: var(--dim); border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
@@ -682,7 +684,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
       <div id="chatStats" class="dim-line" style="text-align:center; flex:none; min-height:16px;"></div>
       <div id="chatInputRow" style="flex:none; display:flex; gap:8px; align-items:flex-end; padding:2px 0;">
         <button id="btnChatClear" onclick="chatClearAsk()" data-i18n="清空" style="flex:none; min-width:52px; height:40px; border:none; border-radius:10px; background:var(--surface2); color:var(--dim); font-size:13px; font-weight:600;">清空</button>
-        <textarea id="chatInput" rows="1" data-i18n-ph="说点什么…（Enter 发送）" style="flex:1; min-height:40px; max-height:168px;"></textarea>
+        <textarea id="chatInput" rows="1" data-i18n-ph="说点什么…" style="flex:1; min-height:40px; max-height:168px;"></textarea>
         <button id="btnThink" data-i18n-t="思考" title="切换深度思考" style="flex:none; min-width:52px; height:40px; border:none; border-radius:10px; background:var(--surface2); color:var(--dim); font-size:13px; font-weight:600;">思考</button>
         <button id="btnThinkEnd" data-i18n-t="结束思考" style="flex:none; min-width:64px; height:40px; border:none; border-radius:10px; background:var(--warn); color:#0e1116; font-size:13px; font-weight:600; display:none;">结束思考</button>
         <button id="btnChatSend" data-i18n="发送" style="flex:none; min-width:72px; height:40px; border:none; border-radius:10px; background:var(--primary); color:#fff; font-size:14px; font-weight:600;">发送</button>

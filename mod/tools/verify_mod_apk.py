@@ -79,6 +79,13 @@ assert b"engineAllowed" in appjs, "app.js setProfile/doStart caps guard missing"
 assert b'<script src="caps.js">' in idx, "index.html missing caps.js script"
 assert b"unavail" in idx, "index.html missing unavail style"
 print("fix10 assets: caps.js + guards + gating ok")
+# fix13: SoC 代号回归 —— SM8850=8 Elite Gen 5 / SM8750=8 Elite / SM8650=8 Gen 3 / SM8550=8 Gen 2
+# （曾经错位一代：SM8850 被判未识别、SM8450 被错误放行）
+assert b'"sm8850"' in caps and b'"sm8750"' in caps and b'"sm8650"' in caps and b'"sm8550"' in caps, \
+    "fix13: caps.js SOC_NPU has wrong SoC numbers"
+assert b'"sm8850"' in rec and b'"sm8450"' not in rec, \
+    "fix13: recommend.js TEMPLATES has wrong SoC numbers"
+print("fix13 assets: SoC numbers correct (sm8850/sm8750/sm8650/sm8550)")
 
 # 4) 打包结构
 arsc = [i for i in z.infolist() if i.filename == "resources.arsc"]

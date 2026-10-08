@@ -18,11 +18,14 @@
   "use strict";
 
   /* ---- SoC → NPU（子串匹配，小写；与 recommend.js 口径一致） ---- */
+  /* fix13: 纠正 SoC 代号（之前错位一代：sm8750 实为 8 Elite 而非 Gen 5）
+   * 正确对应：SM8850=8 Elite Gen 5 / SM8750=8 Elite / SM8650=8 Gen 3 / SM8550=8 Gen 2
+   * SM8450=8+ Gen 1 不在名单（HTP 版本不够，之前被错误放行） */
   var SOC_NPU = [
-    ["sm8750", "8 elite gen 5", "8elite5"],
-    ["sm8650", "8 elite"],
-    ["sm8550", "8 gen 3", "8gen3"],
-    ["sm8450", "8 gen 2", "8gen2"]
+    ["sm8850", "8 elite gen 5", "8elite5"],
+    ["sm8750", "8 elite"],
+    ["sm8650", "8 gen 3", "8gen3"],
+    ["sm8550", "8 gen 2", "8gen2"]
   ];
 
   function readWelcome() {

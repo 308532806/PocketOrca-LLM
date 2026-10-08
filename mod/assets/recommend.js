@@ -13,16 +13,17 @@
   /* ---- 模板库：按 SoC / 平台匹配（新增型号只需在数组前插入即可）---- */
   /* match: 命中 soc 字符串（小写子串）。ramMin 可选（GB）。 */
   var TEMPLATES = [
-    { match: ["sm8750", "8 elite gen 5", "8elite5"], name: "骁龙 8 Elite Gen 5",
+    /* fix13: 纠正 SoC 代号（之前错位一代） */
+    { match: ["sm8850", "8 elite gen 5", "8elite5"], name: "骁龙 8 Elite Gen 5",
       ctx: 16384, ubatch: 1024, threads: 8, kvoff: true, profile: "htp",
       note: "旗舰 NPU，可跑大上下文" },
-    { match: ["sm8650", "8 elite"], name: "骁龙 8 Elite",
+    { match: ["sm8750", "8 elite"], name: "骁龙 8 Elite",
       ctx: 8192, ubatch: 1024, threads: 8, kvoff: true, profile: "htp",
       note: "旗舰 NPU，8K 上下文流畅" },
-    { match: ["sm8550", "8 gen 3", "8gen3"], name: "骁龙 8 Gen 3",
+    { match: ["sm8650", "8 gen 3", "8gen3"], name: "骁龙 8 Gen 3",
       ctx: 8192, ubatch: 512, threads: 8, kvoff: true, profile: "htp",
       note: "NPU 强，K 系量化可全速" },
-    { match: ["sm8450", "8 gen 2", "8gen2"], name: "骁龙 8 Gen 2",
+    { match: ["sm8550", "8 gen 2", "8gen2"], name: "骁龙 8 Gen 2",
       ctx: 4096, ubatch: 512, threads: 6, kvoff: false, profile: "htp",
       note: "NPU 可用，大上下文注意内存" },
     { match: ["sm8350", "888"], name: "骁龙 888",

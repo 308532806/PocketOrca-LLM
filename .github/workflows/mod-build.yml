@@ -20,8 +20,8 @@ permissions:
   contents: write
 
 env:
-  MOD_TAG: v1.4.1-fix12
-  APK_NAME: PocketOrca-LLM-v1.4.1-fix12.apk
+  MOD_TAG: v1.4.1-fix13
+  APK_NAME: PocketOrca-LLM-v1.4.1-fix13.apk
 
 jobs:
   build:
@@ -101,7 +101,7 @@ jobs:
         run: |
           SHA=$(sha256sum "out/$APK_NAME" | awk '{print $1}')
           SIZE=$(stat -c%s "out/$APK_NAME")
-          cp mod/release-notes/v1.4.1-fix12.md /tmp/notes.md
+          cp mod/release-notes/v1.4.1-fix13.md /tmp/notes.md
           {
             echo ""
             echo "---"

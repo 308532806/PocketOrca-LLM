@@ -179,7 +179,7 @@ var I18N = {
             "结果": "結果",
             "尚未请求": "尚未請求",
             "Key 为空": "Key 為空",
-            "说点什么…（Enter 发送）": "說點什麼…（Enter 傳送）",
+            "说点什么…": "說點什麼…",
             max_tok: "max_tok",
             "本地引擎": "本地引擎",
             "专为高通骁龙手机设计的本地大模型服务器": "專為高通驍龍手機設計的本地大模型伺服器",
@@ -384,7 +384,7 @@ var I18N = {
             "尚未请求": "No request yet",
             max_tok: "max_tok",
             "Key 为空": "Key is empty",
-            "说点什么…（Enter 发送）": "Type a message… (Enter to send)",
+            "说点什么…": "Say something…",
             "专为高通骁龙手机设计的本地大模型服务器": "Local LLM server, built for Snapdragon phones",
             "我已知晓，开始使用": "Got it, start",
             "本机设备": "This device",
@@ -1279,7 +1279,7 @@ function applyI18nDom() {
     }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-    APP_VER = "1.4.1 fix12";
+    APP_VER = "1.4.1 fix13";
 
 function applyTheme(e) {
     var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
