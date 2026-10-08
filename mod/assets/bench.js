@@ -123,6 +123,12 @@ function benchSetBtn(text, busy) {
 
 function benchPut(eng, item) {
   benchItems[eng] = item;
+  // fix10: MTP 探测结果按模型路径缓存（skip 的跳过不算一次探测）
+  if (eng === "mtp" && !item.skip && typeof recordModelMtp === "function") {
+    var mp = (typeof model !== "undefined" && model && model.path) || "";
+    if (mp && item.phase === "done") recordModelMtp(mp, true);
+    else if (mp && item.phase === "fail" && benchMtpNoMtp()) recordModelMtp(mp, false);
+  }
   benchRenderRows();
 }
 
@@ -255,6 +261,16 @@ function benchNext() {
   if (!benchRunning) return;
   if (benchIdx >= benchQueue.length) { benchFinish(); return; }
   var eng = benchQueue[benchIdx];
+  // fix10: 已知不支持的引擎直接跳过，不浪费一次启动的时间开销
+  if (typeof engineAllowed === "function") {
+    var chk = engineAllowed(eng);
+    if (!chk.ok) {
+      benchPut(eng, { phase: "fail", reason: chk.reason, skip: true });
+      benchIdx += 1;
+      setTimeout(function () { benchWaitFree(0, benchNext); }, 300);
+      return;
+    }
+  }
   benchPut(eng, { phase: "starting" });
   benchSetUi(BENCH_LABELS[eng] + " " + T("启动中") + "…");
   benchT0 = Date.now();
@@ -271,15 +287,21 @@ function benchNext() {
   benchPollReady(0);
 }
 
+/* fix10: MTP 失败特征判断抽出，与 caps.js 同源（caps.js 未加载时本地回退） */
+function benchMtpNoMtp() {
+  try {
+    if (typeof mtpLogHasNoMtp === "function") return mtpLogHasNoMtp();
+  } catch (e) { }
+  try {
+    var log = bridge("getLog") || "";
+    return log.indexOf("doesn't contain MTP layers") >= 0 || log.indexOf("failed to create MTP context") >= 0;
+  } catch (e2) { return false; }
+}
+
 /* fix9: MTP 失败原因细化 —— 普通 GGUF 缺 MTP 层时给出可操作提示，而非笼统"启动失败" */
 function benchFailReason(eng) {
-  if (eng === "mtp") {
-    try {
-      var log = bridge("getLog") || "";
-      if (log.indexOf("doesn't contain MTP layers") >= 0 || log.indexOf("failed to create MTP context") >= 0)
-        return T("需 MTP 权重（当前模型不含 MTP 层）");
-    } catch (e) { }
-  }
+  if (eng === "mtp" && benchMtpNoMtp())
+    return T("需 MTP 权重（当前模型不含 MTP 层）");
   return T("启动失败");
 }
 

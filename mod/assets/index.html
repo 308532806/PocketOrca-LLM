@@ -235,6 +235,9 @@ textarea#cliPrompt {
   border-radius: 999px; padding: 5px 12px; font-size: 12px; cursor: pointer;
 }
 .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+/* fix10: 能力门控 —— 不可用引擎置灰（保留点击，toast 告知原因） */
+#engineSeg button.unavail, #benchPick .chip.unavail { opacity: .35; }
+#engineSeg button.unavail { text-decoration: line-through; }
 /* fix8: 测速主按钮与全局风格统一 */
 #btnBench {
   width: 100%; border: none; border-radius: var(--r-btn);
@@ -784,6 +787,7 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
 <script src="app.js"></script>
 <script src="bench.js"></script>
 <script src="recommend.js"></script>
+<script src="caps.js"></script>
 <script>renderRecommend && renderRecommend();</script>
 </body>
 </html>

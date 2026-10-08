@@ -59,6 +59,9 @@ var I18N = {
       "预热中…": "預熱中…",
       "测量中…": "測量中…",
       "启动失败": "啟動失敗",
+      "本机无可用 NPU，已自动屏蔽": "本機無可用 NPU，已自動遮蔽",
+      "本机无可用 NPU，MTP 不可用": "本機無可用 NPU，MTP 不可用",
+      "当前模型不含 MTP 层，已自动屏蔽": "目前模型不含 MTP 層，已自動遮蔽",
       "启动超时": "啟動逾時",
       "请求失败": "請求失敗",
       "无 timings 数据": "無 timings 資料",
@@ -236,6 +239,9 @@ var I18N = {
       "预热中…": "Warming up…",
       "测量中…": "Measuring…",
       "启动失败": "Start failed",
+      "本机无可用 NPU，已自动屏蔽": "No usable NPU on this device, hidden automatically",
+      "本机无可用 NPU，MTP 不可用": "No usable NPU on this device, MTP unavailable",
+      "当前模型不含 MTP 层，已自动屏蔽": "Current model has no MTP layers, hidden automatically",
       "启动超时": "Start timed out",
       "请求失败": "Request failed",
       "无 timings 数据": "No timings in response",
@@ -496,6 +502,17 @@ function applyQwen3Guard() {}
 
 function setProfile(e, t) {
   if (benchRunning) return;
+  // fix10: 能力门控 —— 不可用引擎拦截（t 为真时静默，用于启动恢复）
+  if (typeof engineAllowed === "function") {
+    var _cap = engineAllowed(e);
+    if (!_cap.ok) {
+      var _fb = "cpu";
+      try { if (deviceCaps().npu) _fb = "htp"; } catch (_e) {}
+      if (!t && typeof toastT === "function") toastT(_cap.reason);
+      if (e !== _fb) setProfile(_fb, true);
+      return;
+    }
+  }
   var _seg = $("engineSeg");
   if (_seg) { _seg.style.opacity = "0.5"; _seg.style.pointerEvents = "none"; }
   setTimeout(function() { if (_seg) { _seg.style.opacity = ""; _seg.style.pointerEvents = ""; } }, 600);
@@ -575,7 +592,13 @@ function port() {
 }
 
 function doStart(e) {
+    // fix10: 能力门控防御（bench 内由 benchNext 预过滤，此处测速中静默跳过）
+    if (typeof engineAllowed === "function" && !(typeof benchRunning !== "undefined" && benchRunning)) {
+        var _cap2 = engineAllowed(e.profileId);
+        if (!_cap2.ok) { if (typeof toastT === "function") toastT(_cap2.reason); return false; }
+    }
     setState("starting", "正在启动…"), bridge("startServer", e.modelPath, e.profileId, e.port, e.ctx, e.reasoning, e.threads, e.noKvOffload, e.ub, window._sleepIdle || 0)
+    return true;
 }
 
 function onMainButton() {
@@ -1100,7 +1123,7 @@ function applyI18nDom() {
     }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-    APP_VER = "1.4.1 fix9";
+    APP_VER = "1.4.1 fix10";
 
 function applyTheme(e) {
     var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;

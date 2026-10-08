@@ -61,6 +61,14 @@ assert b'1.4.1 fix8' not in idx, "stale hardcoded version string in index.html"
 assert b'$("verLine")' in appjs, "verLine not filled from APP_VER"
 print("bench assets: app.js + index.html + bench.js + recommend.js (fix6) ok")
 print("fix9 assets: follow-scroll + keyboard + mtp reason + verLine ok")
+# fix10: 能力检测与门控
+caps = z.read("assets/caps.js")
+assert b"deviceCaps" in caps and b"engineAllowed" in caps and b"recordModelMtp" in caps, \
+    "caps.js missing core functions"
+assert b"engineAllowed" in appjs, "app.js setProfile/doStart caps guard missing"
+assert b'<script src="caps.js">' in idx, "index.html missing caps.js script"
+assert b"unavail" in idx, "index.html missing unavail style"
+print("fix10 assets: caps.js + guards + gating ok")
 
 # 4) 打包结构
 arsc = [i for i in z.infolist() if i.filename == "resources.arsc"]
