@@ -71,7 +71,13 @@ function benchLoadSel() {
       if (BENCH_ENGINES.indexOf(arr[i]) >= 0) picks.push(arr[i]);
     }
   }
-  if (!picks || !picks.length) picks = BENCH_ENGINES.slice();
+  /* fix12: 无历史时默认只勾 NPU+CPU（GPU/MTP 手动加；低内存设备禁 GPU 完整测速红线，默认比警告更安全） */
+  if (!picks || !picks.length) {
+    picks = [];
+    var safe = ["npu", "cpu"], k;
+    for (k = 0; k < safe.length; k++) if (BENCH_ENGINES.indexOf(safe[k]) >= 0) picks.push(safe[k]);
+    if (!picks.length) picks = BENCH_ENGINES.slice();
+  }
   benchApplySel(picks);
 }
 
@@ -87,6 +93,19 @@ function benchLoadSel() {
     });
   }
   benchLoadSel();
+})();
+
+/* fix12: 测速失败行"查看日志"跳转（事件委托，常驻零开销） */
+(function () {
+  var box = document.getElementById("benchTable");
+  if (box && box.addEventListener) {
+    box.addEventListener("click", function (ev) {
+      var t = ev.target;
+      if (t && t.classList && t.classList.contains("golog")) {
+        if (typeof goTab === "function") goTab(t.getAttribute("data-go") || "pageLogs");
+      }
+    });
+  }
 })();
 
 /* ---- onHttpDone 仲裁：测速期间的响应由测速逻辑消费，其余走原处理 ---- */
@@ -146,10 +165,12 @@ function benchRenderRows() {
     else if (it.phase === "measuring") html += T("测量中…");
     else if (it.phase === "done") {
       html += '<span class="tv">⚡ ' + (it.tg || 0).toFixed(1) + " t/s</span>" +
-        ' · pp ' + (it.pp || 0).toFixed(1) + " t/s · " + T("加载") + " " +
+        " · " + T("提示处理") + " " + (it.pp || 0).toFixed(1) + " t/s · " + T("加载") + " " +
         ((it.loadMs || 0) / 1000).toFixed(1) + "s";
     } else {
-      html += '<span class="bad">✗ ' + (it.reason || T("失败")) + "</span>";
+      /* fix12: 失败行给"查看日志"跳转 */
+      html += '<span class="bad">✗ ' + (it.reason || T("失败")) + "</span>" +
+        ' <a class="golog" data-go="pageLogs" style="color:var(--primary);font-size:12px">' + T("查看日志") + "</a>";
     }
     html += "</span></div>";
   }
@@ -272,7 +293,8 @@ function benchNext() {
     }
   }
   benchPut(eng, { phase: "starting" });
-  benchSetUi(BENCH_LABELS[eng] + " " + T("启动中") + "…");
+  /* fix12: 总进度 n/m */
+  benchSetUi(T("测速中") + " " + (benchIdx + 1) + "/" + benchQueue.length + " · " + BENCH_LABELS[eng] + " " + T("启动中") + "…");
   benchT0 = Date.now();
   doStart({
     modelPath: model.path,

@@ -68,6 +68,23 @@ var I18N = {
       "模型较小，已调高上下文": "模型較小，已調高上下文",
       "内存扩展已开启，上下文放宽一档（扩展内存较慢，超出物理内存部分会变慢）": "記憶體擴展已開啟，上下文放寬一檔（擴展記憶體較慢，超出實體記憶體部分會變慢）",
       "内存扩展已开启（已达上下文上限）": "記憶體擴展已開啟（已達上下文上限）",
+      "去启动": "去啟動",
+      "清空": "清空",
+      "清空当前对话？": "清空目前對話？",
+      "已清空": "已清空",
+      "生成中，稍候再清空": "生成中，稍後再清空",
+      "开始新的对话吧": "開始新的對話吧",
+      "复制": "複製",
+      "已复制": "已複製",
+      "检查中…": "檢查中…",
+      "检查超时，请稍后重试": "檢查逾時，請稍後重試",
+      "未能获取版本信息": "未能取得版本資訊",
+      "发现新版本 ": "發現新版本 ",
+      "，当前 ": "，目前 ",
+      "检查失败，请检查网络": "檢查失敗，請檢查網路",
+      "提示处理": "提示處理",
+      "查看日志": "查看日誌",
+      "测速中": "測速中",
       "启动超时": "啟動逾時",
       "请求失败": "請求失敗",
       "无 timings 数据": "無 timings 資料",
@@ -254,6 +271,23 @@ var I18N = {
       "模型较小，已调高上下文": "Small model: context raised",
       "内存扩展已开启，上下文放宽一档（扩展内存较慢，超出物理内存部分会变慢）": "RAM extension on: context raised one tier (extended RAM is slower)",
       "内存扩展已开启（已达上下文上限）": "RAM extension on (context already at max)",
+      "去启动": "Go start",
+      "清空": "Clear",
+      "清空当前对话？": "Clear current chat?",
+      "已清空": "Cleared",
+      "生成中，稍候再清空": "Generating, try later",
+      "开始新的对话吧": "Start a new chat",
+      "复制": "Copy",
+      "已复制": "Copied",
+      "检查中…": "Checking…",
+      "检查超时，请稍后重试": "Check timed out, retry later",
+      "未能获取版本信息": "Couldn't get version info",
+      "发现新版本 ": "New version ",
+      "，当前 ": ", current ",
+      "检查失败，请检查网络": "Check failed, check network",
+      "提示处理": "Prompt",
+      "查看日志": "View logs",
+      "测速中": "Benchmarking",
       "启动超时": "Start timed out",
       "请求失败": "Request failed",
       "无 timings 数据": "No timings in response",
@@ -401,15 +435,37 @@ var state = "ready",
         return document.getElementById(e)
     };
 
-function toast(e) {
+/* fix12: toast 分级 + 时长按文案长度动态（1600~4200ms），零轮询 */
+function toast(e, lvl) {
     var t = $("toast");
-    t.textContent = e, t.classList.add("show"), clearTimeout(t._t), t._t = setTimeout(function() {
-        t.classList.remove("show")
-    }, 1600)
+    t.classList.remove("act"), t.textContent = e, t.className = "show " + (lvl || "");
+    clearTimeout(t._t);
+    var ms = Math.min(4200, Math.max(1600, String(e).length * 55));
+    t._t = setTimeout(function() { t.className = ""; }, ms);
 }
 
 function toastT(e) {
     toast(T(e))
+}
+function toastOk(e) { toast(T(e), "ok"); }
+function toastErr(e) { toast(T(e), "err"); }
+
+/* fix12: 可点击的 toast —— 文案 + 动作按钮（如"服务未运行 → 去启动"） */
+function toastAct(msg, label, fn) {
+    var t = $("toast");
+    t.innerHTML = "";
+    var s = document.createElement("span"); s.textContent = msg; t.appendChild(s);
+    var b = document.createElement("button"); b.className = "toast-act"; b.textContent = label;
+    b.onclick = function(ev) { ev.stopPropagation(); t.className = ""; try { fn(); } catch (e) {} };
+    t.appendChild(b);
+    t.className = "show act";
+    clearTimeout(t._t), t._t = setTimeout(function() { t.className = ""; }, 3600);
+}
+
+/* fix12: 按 page id 跳 tab（switchTab 要的是 tab 元素） */
+function goTab(page) {
+    var el = document.querySelector('.tab[data-page="' + page + '"]');
+    if (el) switchTab(el);
 }
 
 function toggleRec() {
@@ -652,12 +708,26 @@ function confirmCancel() {
 }
 
 function confirmOk() {
-    var e = window._pendingReset;
-    if (window._pendingReset = !1, $("confirmOkBtn").textContent = T("仍要启动"), $("confirmdlg").style.display = "none", e) doFactoryReset();
+    var e = window._pendingReset, c = window._pendingChatClear;
+    if (window._pendingReset = !1, window._pendingChatClear = !1, $("confirmOkBtn").textContent = T("仍要启动"), $("confirmdlg").style.display = "none", e) doFactoryReset();
+    else if (c) doChatClear();
     else {
         var t = confirmPending;
         confirmPending = null, t && doStart(t)
     }
+}
+
+/* fix12: Chat 清空 / 新对话（confirm 复用现有对话框） */
+function chatClearAsk() {
+    if (chatStreaming) { toastT("生成中，稍候再清空"); return; }
+    $("confirmText").textContent = T("清空当前对话？"), $("confirmOkBtn").textContent = T("清空"), $("confirmdlg").style.display = "flex", window._pendingChatClear = !0;
+}
+function doChatClear() {
+    chatMsgs.length = 0; window._mdCode = {};
+    var s = $("chatScroll");
+    if (s) s.innerHTML = '<div class="empty-hint" id="chatEmpty">' + T("开始新的对话吧") + "</div>";
+    var st = $("chatStats"); if (st) st.textContent = "";
+    toastT("已清空");
 }
 $("sleepIdleSeg").addEventListener("click", function(e) {
     if (e.target && e.target.dataset && null != e.target.dataset.si) {
@@ -740,6 +810,80 @@ function chatStreamBubble() {
     }
 }
 
+/* fix12: 轻量 markdown 子集 —— 只在消息完成时渲染一次，流式阶段保持纯文本（零额外开销） */
+window._mdCode = {};
+window._mdSeq = 0;
+function mdCodeStore(lang, code) {
+    var id = "md" + (Date.now() % 100000) + "_" + (++window._mdSeq);
+    window._mdCode[id] = { lang: lang, code: code };
+    return id;
+}
+function mdRender(src) {
+    var esc = function(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); };
+    var inline = function(s) {
+        return esc(s)
+            .replace(/`([^`\n]+)`/g, "<code>$1</code>")
+            .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+            .replace(/(^|[\s(\[{])\*([^*\n]+)\*/g, "$1<i>$2</i>");
+    };
+    // 1) 按行提走代码块（存原文供复制；未闭合也收）
+    var raw = String(src).split("\n"), body = [], i, fLang = "", fBuf = null;
+    for (i = 0; i < raw.length; i++) {
+        var ln0 = raw[i];
+        if (fBuf === null) {
+            var fm = ln0.match(/^```([a-zA-Z0-9+#-]*)\s*$/);
+            if (fm) { fLang = fm[1] || ""; fBuf = []; }
+            else body.push(ln0);
+        } else if (/^```\s*$/.test(ln0)) {
+            body.push("\x00" + mdCodeStore(fLang, fBuf.join("\n").replace(/\n+$/, "")) + "\x00");
+            fBuf = null;
+        } else fBuf.push(ln0);
+    }
+    if (fBuf !== null) body.push("\x00" + mdCodeStore(fLang, fBuf.join("\n").replace(/\n+$/, "")) + "\x00");
+    // 2) 块级解析（行内转义统一在 inline() 里做一次，不双重转义）
+    var lines = body, out = [], n = lines.length;
+    i = 0;
+    while (i < n) {
+        var ln = lines[i], cb = ln.match(/^\x00([^\x00]+)\x00$/), h, q, um, om, u2, o2, items;
+        if (cb) {
+            var rec = window._mdCode[cb[1]] || { lang: "", code: "" };
+            out.push('<div class="cblock"><div class="chead"><span>' + esc(rec.lang || "code") + '</span><button class="cpcopy" data-cid="' + cb[1] + '">' + T("复制") + "</button></div><pre><code>" + esc(rec.code) + "</code></pre></div>");
+            i++; continue;
+        }
+        if (/^\s*$/.test(ln)) { i++; continue; }
+        h = ln.match(/^(#{1,3})\s+(.+)$/);
+        if (h) { out.push("<h" + h[1].length + ' class="mdh">' + inline(h[2]) + "</h" + h[1].length + ">"); i++; continue; }
+        if (/^---+\s*$/.test(ln)) { out.push("<hr>"); i++; continue; }
+        q = ln.match(/^>\s?(.*)$/);
+        if (q) { out.push("<blockquote>" + inline(q[1]) + "</blockquote>"); i++; continue; }
+        um = ln.match(/^[-*]\s+(.+)$/);
+        if (um) { items = []; while (i < n) { u2 = lines[i].match(/^[-*]\s+(.+)$/); if (!u2) break; items.push("<li>" + inline(u2[1]) + "</li>"); i++; } out.push("<ul>" + items.join("") + "</ul>"); continue; }
+        om = ln.match(/^\d{1,3}[.)]\s+(.+)$/);
+        if (om) { items = []; while (i < n) { o2 = lines[i].match(/^\d{1,3}[.)]\s+(.+)$/); if (!o2) break; items.push("<li>" + inline(o2[1]) + "</li>"); i++; } out.push("<ol>" + items.join("") + "</ol>"); continue; }
+        out.push("<p>" + inline(ln) + "</p>");
+        i++;
+    }
+    return out.join("");
+}
+function chatMdApply(n, st) {
+    try {
+        if (n && n.body && "200" === st && chatBody) n.body.innerHTML = mdRender(chatBody);
+    } catch (e) { try { n.body.textContent = chatBody; } catch (e2) {} }
+}
+/* 代码块复制：chatScroll 上一次事件委托，常驻零开销 */
+try {
+    document.getElementById("chatScroll").addEventListener("click", function(ev) {
+        var b = ev.target;
+        if (!b || !b.classList || !b.classList.contains("cpcopy")) return;
+        var _cr = window._mdCode[b.getAttribute("data-cid")];
+        var code = (_cr && _cr.code) || "";
+        var done = function() { b.textContent = T("已复制"); setTimeout(function() { b.textContent = T("复制"); }, 1200); };
+        var fb = function() { var ta = document.createElement("textarea"); ta.value = code; document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); } catch (e) {} ta.remove(); done(); };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(code).then(done, fb);
+        else fb();
+    });
+} catch (e) {}
+
 function chatSend() {
     if (!chatStreaming) {
         var e = null;
@@ -797,7 +941,7 @@ function chatSend() {
                 });
                 chatStreaming = !0, chatThink = "", chatBody = "", c = chatStreamBubble(), window._chatUI = c, window._chatT0 = Date.now(), $("btnChatSend").textContent = T("停止"), bridge("chatStart", d, o ? r + "/chat/completions" : null)
             }
-        } else toastT("服务未运行")
+        } else toastAct(T("服务未运行"), T("去启动"), function() { goTab("pageServer"); });
     }
 }
 
@@ -842,7 +986,7 @@ window.onChatChunk = function(e) {
             l = o.completion_tokens || 0,
             i = l > 0 ? (l / r).toFixed(1) + " t/s" : "",
             s = null != o.first_token_ms ? T(" · 首字 ") + Math.round(o.first_token_ms) + "ms" : "";
-        $("chatStats").textContent = [l + " tok", i, s].filter(Boolean).join(" · "), "200" === e || chatBody ? chatBody || (n.body.textContent = T("(空回复)")) : n.body.textContent = T("请求失败 (HTTP ") + e + (o.error ? " · " + o.error : "") + ")", chatMsgs.push({
+        $("chatStats").textContent = [l + " tok", i, s].filter(Boolean).join(" · "), "200" === e || chatBody ? chatBody || (n.body.textContent = T("(空回复)")) : n.body.textContent = T("请求失败 (HTTP ") + e + (o.error ? " · " + o.error : "") + ")", chatMdApply(n, e), chatMsgs.push({
             role: "assistant",
             content: chatBody
         })
@@ -1135,7 +1279,7 @@ function applyI18nDom() {
     }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-    APP_VER = "1.4.1 fix11";
+    APP_VER = "1.4.1 fix12";
 
 function applyTheme(e) {
     var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1171,8 +1315,22 @@ function applyLang(e) {
     applyI18nDom()
 }
 
+/* fix12: 真查 GitHub Releases，不再是桩 */
 function checkUpdate() {
-    $("updHint").textContent = T("已是最新 ") + APP_VER, toastT(T("检测更新：已是最新 ") + APP_VER)
+    var hint = $("updHint");
+    hint.textContent = T("检查中…");
+    var cur = "v" + APP_VER.replace(" ", "-");
+    var done = function(msg, lvl) { hint.textContent = msg; toast(msg, lvl); };
+    var to = setTimeout(function() { done(T("检查超时，请稍后重试"), "warn"); }, 9000);
+    try {
+        fetch("https://api.github.com/repos/308532806/PocketOrca-LLM/releases/latest").then(function(r) { return r.json(); }).then(function(j) {
+            clearTimeout(to);
+            var tag = (j && j.tag_name) || "";
+            if (!tag) return done(T("未能获取版本信息"), "warn");
+            if (tag === cur) done(T("已是最新 ") + APP_VER, "ok");
+            else done(T("发现新版本 ") + tag + T("，当前 ") + APP_VER, "warn");
+        }).catch(function() { clearTimeout(to); done(T("检查失败，请检查网络"), "err"); });
+    } catch (e) { clearTimeout(to); done(T("检查失败，请检查网络"), "err"); }
 }
 
 function factoryReset() {

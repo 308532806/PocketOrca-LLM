@@ -63,6 +63,14 @@ assert b'1.4.1 fix8' not in idx, "stale hardcoded version string in index.html"
 assert b'$("verLine")' in appjs, "verLine not filled from APP_VER"
 print("bench assets: app.js + index.html + bench.js + recommend.js (fix6) ok")
 print("fix9 assets: follow-scroll + keyboard + mtp reason + verLine ok")
+# fix12: UI 系统优化
+assert b"mdRender" in appjs and b"chatMdApply" in appjs, "fix12: chat markdown missing"
+assert b"chatClearAsk" in appjs and b"doChatClear" in appjs, "fix12: chat clear missing"
+assert b"api.github.com/repos/308532806/PocketOrca-LLM/releases" in appjs, "fix12: checkUpdate API missing"
+assert b"toastAct" in appjs and b"goTab" in appjs, "fix12: actionable toast / goTab missing"
+assert b'id="btnChatClear"' in idx, "fix12: chat clear button missing"
+assert b"cblock" in idx, "fix12: markdown code block CSS missing"
+print("fix12 assets: markdown + chat clear + update check + toast/ui ok")
 # fix10: 能力检测与门控
 caps = z.read("assets/caps.js")
 assert b"deviceCaps" in caps and b"engineAllowed" in caps and b"recordModelMtp" in caps, \
