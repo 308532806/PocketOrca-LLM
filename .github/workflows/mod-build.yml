@@ -125,7 +125,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.MOD_TAG }}
-          name: "PocketOrca-LLM v1.4.1 fix10（能力自动检测：不可用引擎自动屏蔽）"
+          name: "PocketOrca-LLM v1.4.1 fix13（SoC 识别修复 · 推荐更准 · UI 优化）"
           body_path: /tmp/notes.md
           files: out/${{ env.APK_NAME }}
           fail_on_unmatched_files: true
