@@ -180,6 +180,15 @@ var I18N = {
             "尚未请求": "尚未請求",
             "Key 为空": "Key 為空",
             "说点什么…": "說點什麼…",
+            /* v1.4.2 多模态/会话 */
+            "无法识别的附件": "無法識別的附件",
+            "录音失败": "錄音失敗",
+            "录音中…": "錄音中…",
+            "会话已保存": "會話已保存",
+            "保存失败": "保存失敗",
+            "恢复会话": "恢復會話",
+            "已删除": "已刪除",
+            "附件 / 会话": "附件 / 會話",
             max_tok: "max_tok",
             "本地引擎": "本地引擎",
             "专为高通骁龙手机设计的本地大模型服务器": "專為高通驍龍手機設計的本地大模型伺服器",
@@ -385,6 +394,15 @@ var I18N = {
             max_tok: "max_tok",
             "Key 为空": "Key is empty",
             "说点什么…": "Say something…",
+            /* v1.4.2 multimodal/session */
+            "无法识别的附件": "Unrecognized attachment",
+            "录音失败": "Recording failed",
+            "录音中…": "Recording…",
+            "会话已保存": "Chat saved",
+            "保存失败": "Save failed",
+            "恢复会话": "Restore chat",
+            "已删除": "Deleted",
+            "附件 / 会话": "Attachments / Sessions",
             "专为高通骁龙手机设计的本地大模型服务器": "Local LLM server, built for Snapdragon phones",
             "我已知晓，开始使用": "Got it, start",
             "本机设备": "This device",
@@ -724,6 +742,8 @@ function chatClearAsk() {
 }
 function doChatClear() {
     chatMsgs.length = 0; window._mdCode = {};
+    try { localStorage.removeItem("npullmChatHist"); } catch (e) {} /* v1.4.2: 同步清除持久化历史 */
+    try { bridge("chatHistPush", "[]"); } catch (e) {}
     var s = $("chatScroll");
     if (s) s.innerHTML = '<div class="empty-hint" id="chatEmpty">' + T("开始新的对话吧") + "</div>";
     var st = $("chatStats"); if (st) st.textContent = "";
@@ -780,7 +800,10 @@ var chatMsgs = [],
     chatStreaming = !1,
     chatThink = "",
     chatBody = "",
-    thinkOn = !1;
+    thinkOn = !1,
+    chatStaged = [],     /* v1.4.2: 待发送附件 [{label, ref}] */
+    chatSlotFile = null, /* v1.4.2: 会话槽位文件 */
+    chatRec99 = !1;      /* v1.4.2: 录音中 */
 
 function chatAddBubble(e, t) {
     var n = $("chatScroll"),
@@ -808,6 +831,19 @@ function chatStreamBubble() {
         body: o,
         cur: r
     }
+}
+
+/* v1.4.2: 多模态附件栏 —— 显示待发送附件 chip / 会话槽位（上游移植） */
+function chatAttachBar() {
+    var t = $("chatAttachBar");
+    if (!t) return;
+    var e = "";
+    for (var n = 0; n < chatStaged.length; n++) {
+        e += '<span class="chat-attach-chip">' + chatStaged[n].label + ' <b data-del="' + n + '">×</b></span>';
+    }
+    if (chatSlotFile) e += '<span class="chat-attach-chip slot">💾 ' + chatSlotFile + ' <b data-delslot="1">×</b></span>';
+    t.innerHTML = e;
+    t.style.display = e ? "flex" : "none";
 }
 
 /* fix12: 轻量 markdown 子集 —— 只在消息完成时渲染一次，流式阶段保持纯文本（零额外开销） */
@@ -894,11 +930,16 @@ function chatSend() {
         if ("remote" === localStorage.getItem("npullmCliMode") || e && e.running) {
             var n = $("chatInput"),
                 a = n.value.trim();
-            if (a) {
+            if (a && !chatRec99) { /* v1.4.2: 录音中禁止发送 */
                 var o = "remote" === localStorage.getItem("npullmCliMode"),
                     r = o ? remoteNormalizeBase($("rBase").value || localStorage.getItem("npullmRemoteBase") || "") : null;
                 if (o && !r) return void toast(T("先填 Base URL"));
-                n.value = "", chatAddBubble("user", a), chatMsgs.push({
+                n.value = "";
+                var _cl = a; /* 气泡显示文本 */
+                /* v1.4.2: 附件 ref / 会话槽位拼接到 content */
+                if (chatStaged.length) for (var _ci = 0; _ci < chatStaged.length; _ci++) a += "\n" + chatStaged[_ci].ref;
+                if (chatSlotFile) { a += "\n💾SLOT:" + chatSlotFile; _cl += " · " + chatSlotFile; }
+                chatAddBubble("user", _cl), chatMsgs.push({
                     role: "user",
                     content: a
                 });
@@ -939,7 +980,10 @@ function chatSend() {
                         enable_thinking: thinkOn
                     }
                 });
-                chatStreaming = !0, chatThink = "", chatBody = "", c = chatStreamBubble(), window._chatUI = c, window._chatT0 = Date.now(), $("btnChatSend").textContent = T("停止"), bridge("chatStart", d, o ? r + "/chat/completions" : null)
+                chatStreaming = !0, chatThink = "", chatBody = "", c = chatStreamBubble(), window._chatUI = c, window._chatT0 = Date.now(), $("btnChatSend").textContent = T("停止"),
+                chatSlotFile && (bridge("chatSlotAction", "restore", chatSlotFile), chatSlotFile = null, chatAttachBar()), /* v1.4.2: 会话恢复 */
+                bridge("chatStart", d = d.replace(/💾SLOT:[^\"]*/g, ""), o ? r + "/chat/completions" : null), /* v1.4.2: 剥离槽位标记 */
+                chatStaged = [], chatAttachBar() /* v1.4.2: 发送后清空附件 */
             }
         } else toastAct(T("服务未运行"), T("去启动"), function() { goTab("pageServer"); });
     }
@@ -956,6 +1000,72 @@ function readSampling() {
         systemPrompt: "string" == typeof sysPrompt ? sysPrompt : ""
     }
 }
+/* v1.4.2: 聊天历史持久化 —— localStorage + 推送给 Java 层（上游移植） */
+function chatHistSave() {
+    try { localStorage.setItem("npullmChatHist", JSON.stringify(chatMsgs)); } catch (e) {}
+    try { bridge("chatHistPush", JSON.stringify(chatMsgs)); } catch (e) {}
+}
+
+/* v1.4.2: 多模态/会话回调（上游移植） */
+window.onChatAttached = function(t) {
+    if (!t) return toastT(T("无法识别的附件"));
+    var e;
+    try { e = JSON.parse(bridge("chatMediaDescribe", t) || "{}"); } catch (e) {}
+    var n = (e && e.kind) ? e.kind : "image";
+    chatStaged.push({ ref: t, kind: n, label: "image" === n ? "🖼" : "video" === n ? "🎬" : "🎙" });
+    chatAttachBar();
+};
+window.onChatAttachError = function(t) { toastT(t || T("无法识别的附件")); };
+window.onChatRecStarted = function(t) {
+    var e;
+    try { e = JSON.parse(t || "{}"); } catch (e) {}
+    if (e && e.ok) {
+        chatRec99 = !0;
+        var b = $("btnChatAttach"); if (b) b.textContent = "⏹";
+        toastT(T("录音中…"));
+    } else toastT(T("录音失败"));
+};
+window.onChatRecStopped = function(t) {
+    var e;
+    try { e = JSON.parse(t || "{}"); } catch (e) {}
+    chatRec99 = !1;
+    var b = $("btnChatAttach"); if (b) b.textContent = "📎";
+    if (!e || !e.ok) {
+        if (e && e.error && e.error.indexOf("not recording") < 0) toastT(T("录音失败"));
+        return;
+    }
+    if (e.ref) { chatStaged.push({ ref: e.ref, kind: "audio", label: "🎙" }); chatAttachBar(); }
+};
+window.onSlotPicked = function(t) { if (t) { chatSlotFile = t; chatAttachBar(); } };
+window.onSlotDeleted = function(t) {
+    if (t) {
+        if (chatSlotFile === t) { chatSlotFile = null; chatAttachBar(); }
+        toastT(T("已删除"));
+    }
+};
+window.onSlotHistLoaded = function(t) {
+    var e = null;
+    try { e = JSON.parse(t); } catch (t) {}
+    if (e && e.length) {
+        chatMsgs = e;
+        $("chatScroll").innerHTML = "";
+        for (var n = 0; n < e.length; n++) chatAddBubble("user" === e[n].role ? "user" : "assistant", e[n].content || "");
+        chatHistSave();
+    }
+    toastT(T("恢复会话"));
+};
+window.onSlotSaved = function(t) {
+    var e;
+    try { e = JSON.parse(t || "{}"); } catch (e) {}
+    if (e && e.error) toastT(T("保存失败") + " · " + e.error);
+    else toastT(T("会话已保存"));
+};
+window.chatApplyNewPending = function() {
+    chatMsgs = []; chatStaged = []; chatSlotFile = null;
+    $("chatScroll").innerHTML = ""; $("chatStats").textContent = "";
+    chatAttachBar(); chatHistSave();
+};
+
 window.onChatChunk = function(e) {
     var t = window._chatUI;
     if (t && e) {
@@ -989,7 +1099,7 @@ window.onChatChunk = function(e) {
         $("chatStats").textContent = [l + " tok", i, s].filter(Boolean).join(" · "), "200" === e || chatBody ? chatBody || (n.body.textContent = T("(空回复)")) : n.body.textContent = T("请求失败 (HTTP ") + e + (o.error ? " · " + o.error : "") + ")", chatMdApply(n, e), chatMsgs.push({
             role: "assistant",
             content: chatBody
-        })
+        }), chatHistSave() /* v1.4.2: 会话持久化 */
     }
 }, $("chatInput").addEventListener("keydown", function(e) {
     "Enter" !== e.key || e.shiftKey || (e.preventDefault(), chatSend())
@@ -1279,7 +1389,7 @@ function applyI18nDom() {
     }
 }, setInterval(function(){if($("pageCli").classList.contains("active"))cliRefreshState()},3000);
 var _bmoeOn = false,
-    APP_VER = "1.4.1 fix13";
+    APP_VER = "1.4.2 fix1";
 
 function applyTheme(e) {
     var t = "dark" === e || "auto" === e && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -1532,4 +1642,40 @@ function chatUpdateFollowBtn() {
             document.body.style.height = "";
         }
     });
+})();
+
+/* v1.4.2: 启动恢复 —— 聊天历史回填 + 附件按钮接线 + 多模态可用性轮询（上游移植） */
+(function () {
+    try {
+        var h = JSON.parse(localStorage.getItem("npullmChatHist") || "null");
+        if (h && h.length) chatMsgs = h;
+    } catch (e) {}
+    try { bridge("chatHistPush", JSON.stringify(chatMsgs)); } catch (e) {}
+    var ba = $("btnChatAttach");
+    if (ba) ba.addEventListener("click", function () {
+        if (chatRec99) bridge("chatRecStop", !0);
+        else bridge("chatAttachMenu");
+    });
+    var bar = $("chatAttachBar");
+    if (bar) bar.addEventListener("click", function (e) {
+        var t = e.target;
+        if (t && t.dataset) {
+            var changed = !1;
+            if (null != t.dataset.del) {
+                var idx = +t.dataset.del;
+                if (chatStaged[idx]) { bridge("chatAttachCancel", chatStaged[idx].ref); chatStaged.splice(idx, 1); changed = !0; }
+            } else if (t.dataset.delslot) { chatSlotFile = null; changed = !0; }
+            if (changed) chatAttachBar();
+        }
+    });
+    /* 多模态/会话按钮只在服务运行且引擎支持时显示（3s 轮询，与 CLI 状态轮询同频） */
+    setInterval(function () {
+        var t = null;
+        try { t = JSON.parse(bridge("getStatus") || "null"); } catch (e) {}
+        var b = $("btnChatAttach");
+        if (b) {
+            var show = (t && t.running && bridge("chatMultimodalSupported")) || bridge("chatSlotsSupported");
+            b.style.display = show ? "inline-block" : "none";
+        }
+    }, 3000);
 })();

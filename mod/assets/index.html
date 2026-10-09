@@ -236,6 +236,15 @@ select, input {
 .bubble hr { border: none; border-top: 1px solid var(--border); margin: 8px 0; }
 /* fix13: 输入框 placeholder 永不换行被裁（fix12 加清空按钮后输入框变窄） */
 textarea#chatInput::placeholder { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* v1.4.2: 多模态附件 chip（上游移植） */
+#chatAttachBar { width: 100%; max-width: 640px; margin-left: auto; margin-right: auto; }
+.chat-attach-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--surface2); border: 1px solid var(--border); color: var(--dim);
+  border-radius: 14px; padding: 3px 9px; font-size: 12px; max-width: 100%;
+}
+.chat-attach-chip b { cursor: pointer; color: var(--err); font-weight: 700; padding: 0 2px; }
+.chat-attach-chip.slot { border-color: var(--primary); color: var(--primary); }
 .cblock { margin: 6px 0 8px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
 .cblock .chead { display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface2); font-size: 11px; color: var(--dim); }
 .cblock .cpcopy { border: 1px solid var(--border); background: none; color: var(--dim); border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer; }
@@ -682,7 +691,9 @@ body.light #header h1, body.light .w-card b { color: #10151f; }
     <div class="page" id="pageChat">
       <div id="chatScroll" style="flex:1; overflow-y:auto; min-height:0; display:flex; flex-direction:column; gap:10px; padding:4px 0 8px;"></div>
       <div id="chatStats" class="dim-line" style="text-align:center; flex:none; min-height:16px;"></div>
+      <div id="chatAttachBar" style="flex:none; display:none; gap:6px; align-items:center; flex-wrap:wrap; padding:2px 0;"></div>
       <div id="chatInputRow" style="flex:none; display:flex; gap:8px; align-items:flex-end; padding:2px 0;">
+        <button id="btnChatAttach" data-i18n-t="附件 / 会话" title="附件 / 会话" style="flex:none; width:40px; height:40px; border:none; border-radius:10px; background:var(--surface2); color:var(--dim); font-size:16px; display:none;">📎</button>
         <button id="btnChatClear" onclick="chatClearAsk()" data-i18n="清空" style="flex:none; min-width:52px; height:40px; border:none; border-radius:10px; background:var(--surface2); color:var(--dim); font-size:13px; font-weight:600;">清空</button>
         <textarea id="chatInput" rows="1" data-i18n-ph="说点什么…" style="flex:1; min-height:40px; max-height:168px;"></textarea>
         <button id="btnThink" data-i18n-t="思考" title="切换深度思考" style="flex:none; min-width:52px; height:40px; border:none; border-radius:10px; background:var(--surface2); color:var(--dim); font-size:13px; font-weight:600;">思考</button>

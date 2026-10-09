@@ -20,8 +20,8 @@ permissions:
   contents: write
 
 env:
-  MOD_TAG: v1.4.1-fix13
-  APK_NAME: PocketOrca-LLM-v1.4.1-fix13.apk
+  MOD_TAG: v1.4.2-fix1
+  APK_NAME: PocketOrca-LLM-v1.4.2-fix1.apk
 
 jobs:
   build:
@@ -101,7 +101,7 @@ jobs:
         run: |
           SHA=$(sha256sum "out/$APK_NAME" | awk '{print $1}')
           SIZE=$(stat -c%s "out/$APK_NAME")
-          cp mod/release-notes/v1.4.1-fix13.md /tmp/notes.md
+          cp mod/release-notes/v1.4.2-fix1.md /tmp/notes.md
           {
             echo ""
             echo "---"
@@ -125,7 +125,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.MOD_TAG }}
-          name: "PocketOrca-LLM v1.4.1 fix13（SoC 识别修复 · 推荐更准 · UI 优化）"
+          name: "PocketOrca-LLM v1.4.2 fix1（基座升级 · 多模态输入 · 会话持久化）"
           body_path: /tmp/notes.md
           files: out/${{ env.APK_NAME }}
           fail_on_unmatched_files: true
