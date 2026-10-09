@@ -46,11 +46,11 @@ jobs:
           echo "Using build-tools: $BT"
           echo "BT=$BT" >> "$GITHUB_ENV"
 
-      - name: Download official v1.4.0 APK (sha256 pinned)
+      - name: Download official v1.4.2 APK (sha256 pinned)
         run: |
           curl -sSL --retry 3 -o official.apk \
-            "https://github.com/PocketOrca/PocketOrca-LLM/releases/download/v1.4.1/PocketOrca-LLM-v1.4.1-release.apk"
-          echo "077b1ce187eefaa92fe9093c52074fd70acd47e0c7b1e3392c2bdf26ed102f1f  official.apk" | sha256sum -c -
+            "https://github.com/PocketOrca/PocketOrca-LLM/releases/download/v1.4.2/PocketOrca-LLM-v1.4.2-release.apk"
+          echo "09fd7462f29cd39088c1e4df42dce72e404fe6c2941fd29c14e24de76d0308d7  official.apk" | sha256sum -c -
 
       - name: Repack with mods (NPU DMA64 + OpenCL compat + benchmark assets)
         run: |
